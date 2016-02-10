@@ -1,0 +1,3 @@
+-module (elevatorFSM).
+-compile(export_all).
+-behaviour (gen_fsm).
