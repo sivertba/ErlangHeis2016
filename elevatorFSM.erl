@@ -33,6 +33,7 @@ newDirectionRequest(Pid) ->
 start(Pid) -> 
 	spawn(fun() -> s_init(Pid) end).
 
+% s_STATENME
 
 s_init(Pid) ->
 	flush(),
