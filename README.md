@@ -7,4 +7,6 @@ Trenger hjelp fra Kjetil med:
 * Hvordan fungerer driveren
 * Få til simulatoren
 * Spørre dumme spørsmål om å koble til flere maskiner.
+
  
+#####2016-02-18:
