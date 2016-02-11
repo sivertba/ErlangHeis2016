@@ -2,16 +2,16 @@
 CC = gcc
 
 # Compiler flags go here.
-CFLAGS = -std=c11 -g -Wall -Wextra
+CFLAGS = -g -std=c99 -Wall
 
 # Linker flags go here.
-LDFLAGS = -lcomedi -lm
+LDFLAGS = -lcomedi -pthread -lm -lerl_interface -lei -lnsl
 
 # list of sources
-ELEVSRC = elev.c io.c main.c
+ELEVSRC = elev_port.c elev.c io.c erl_communication.c
 
 # program executable file name.
-TARGET = elevator
+TARGET = elev_port
 
 # top-level rule, to compile everything.
 all: $(TARGET)
@@ -21,7 +21,7 @@ ELEVOBJ = $(ELEVSRC:.c=.o)
 
 # rule to link the program
 $(TARGET): $(ELEVOBJ)
-	$(CC) $^ -o $@ $(LDFLAGS)
+	$(CC) $^ simulation_elevator.a libphobos2.a -o $@ $(LDFLAGS)
 
 # Compile: create object files from C source files.
 %.o : %.c
@@ -34,3 +34,6 @@ clean:
 rebuild:	clean all
 
 .PHONY: all rebuild clean
+
+
+#Martin Korsgaard, 2006

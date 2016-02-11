@@ -62,3 +62,8 @@ int main()
 	  write_cmd(result, 1);
       }
       
+
+  }
+
+  return 0;
+}

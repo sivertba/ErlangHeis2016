@@ -1,15 +1,22 @@
+// Wrapper for libComedi Elevator control.
+// These functions provides an interface to the elevators in the real time lab
+//
+// 2007, Martin Korsgaard
 
+// Changed the elev_set_motor_direction to switch case instead of ugly if statement
+//
+// 2015, Kjetil Kjeka
 
-#include "elev.h"
 
 #include "channels.h"
+#include "elev.h"
 #include "io.h"
 
 #include <assert.h>
 #include <stdlib.h>
 
-#define MOTOR_SPEED 2800
-
+// Number of signals and lamps on a per-floor basis (excl sensor)
+#define N_BUTTONS 3
 
 static const int lamp_channel_matrix[N_FLOORS][N_BUTTONS] = {
     {LIGHT_UP1, LIGHT_DOWN1, LIGHT_COMMAND1},
@@ -26,129 +33,122 @@ static const int button_channel_matrix[N_FLOORS][N_BUTTONS] = {
     {BUTTON_UP4, BUTTON_DOWN4, BUTTON_COMMAND4},
 };
 
+int elev_init(ElevatorType elevType) {
+    int i;
 
+    // Init hardware
+    if (!io_init(elevType))
+        return 0;
 
-void elev_init(void) {
-    int init_success = io_init();
-    assert(init_success && "Unable to initialize elevator hardware!");
+    // Zero all floor button lamps
+    for (i = 0; i < N_FLOORS; ++i) {
+        if (i != 0)
+            elev_set_button_lamp(BUTTON_CALL_DOWN, i, 0);
 
-    for (int f = 0; f < N_FLOORS; f++) {
-        for (elev_button_type_t b = 0; b < N_BUTTONS; b++){
-            elev_set_button_lamp(b, f, 0);
-        }
+        if (i != N_FLOORS - 1)
+            elev_set_button_lamp(BUTTON_CALL_UP, i, 0);
+
+        elev_set_button_lamp(BUTTON_COMMAND, i, 0);
     }
 
+    // Clear stop lamp, door open lamp, and set floor indicator to ground floor.
     elev_set_stop_lamp(0);
     elev_set_door_open_lamp(0);
     elev_set_floor_indicator(0);
-}
 
+    // Return success.
+    return 1;
+}
 
 void elev_set_motor_direction(elev_motor_direction_t dirn) {
-    if (dirn == 0){
-        io_write_analog(MOTOR, 0);
-    } else if (dirn > 0) {
-        io_clear_bit(MOTORDIR);
-        io_write_analog(MOTOR, MOTOR_SPEED);
-    } else if (dirn < 0) {
-        io_set_bit(MOTORDIR);
-        io_write_analog(MOTOR, MOTOR_SPEED);
-    }
+  switch(dirn){
+  case(DIRN_STOP):
+    io_write_analog(MOTOR, 0);
+    break;
+  case(DIRN_UP):
+    io_clear_bit(MOTORDIR);
+    io_write_analog(MOTOR, 2800);
+    break;
+  case(DIRN_DOWN):
+    io_set_bit(MOTORDIR);
+    io_write_analog(MOTOR, 2800);
+    break;
+  }
 }
 
-
-void elev_set_button_lamp(elev_button_type_t button, int floor, int value) {
-    assert(floor >= 0);
-    assert(floor < N_FLOORS);
-    assert(button >= 0);
-    assert(button < N_BUTTONS);
-
-    if (value) {
-        io_set_bit(lamp_channel_matrix[floor][button]);
-    } else {
-        io_clear_bit(lamp_channel_matrix[floor][button]);
-    }
+void elev_set_door_open_lamp(int value) {
+    if (value)
+        io_set_bit(LIGHT_DOOR_OPEN);
+    else
+        io_clear_bit(LIGHT_DOOR_OPEN);
 }
 
+int elev_get_obstruction_signal(void) {
+    return io_read_bit(OBSTRUCTION);
+}
+
+int elev_get_stop_signal(void) {
+    return io_read_bit(STOP);
+}
+
+void elev_set_stop_lamp(int value) {
+    if (value)
+        io_set_bit(LIGHT_STOP);
+    else
+        io_clear_bit(LIGHT_STOP);
+}
+
+int elev_get_floor_sensor_signal(void) {
+    if (io_read_bit(SENSOR_FLOOR1))
+        return 0;
+    else if (io_read_bit(SENSOR_FLOOR2))
+        return 1;
+    else if (io_read_bit(SENSOR_FLOOR3))
+        return 2;
+    else if (io_read_bit(SENSOR_FLOOR4))
+        return 3;
+    else
+        return -1;
+}
 
 void elev_set_floor_indicator(int floor) {
     assert(floor >= 0);
     assert(floor < N_FLOORS);
 
     // Binary encoding. One light must always be on.
-    if (floor & 0x02) {
+    if (floor & 0x02)
         io_set_bit(LIGHT_FLOOR_IND1);
-    } else {
+    else
         io_clear_bit(LIGHT_FLOOR_IND1);
-    }    
 
-    if (floor & 0x01) {
+    if (floor & 0x01)
         io_set_bit(LIGHT_FLOOR_IND2);
-    } else {
+    else
         io_clear_bit(LIGHT_FLOOR_IND2);
-    }    
 }
-
-
-void elev_set_door_open_lamp(int value) {
-    if (value) {
-        io_set_bit(LIGHT_DOOR_OPEN);
-    } else {
-        io_clear_bit(LIGHT_DOOR_OPEN);
-    }
-}
-
-
-void elev_set_stop_lamp(int value) {
-    if (value) {
-        io_set_bit(LIGHT_STOP);
-    } else {
-        io_clear_bit(LIGHT_STOP);
-    }
-}
-
-
 
 int elev_get_button_signal(elev_button_type_t button, int floor) {
     assert(floor >= 0);
     assert(floor < N_FLOORS);
-    assert(button >= 0);
-    assert(button < N_BUTTONS);
+    assert(!(button == BUTTON_CALL_UP && floor == N_FLOORS - 1));
+    assert(!(button == BUTTON_CALL_DOWN && floor == 0));
+    assert(button == BUTTON_CALL_UP || button == BUTTON_CALL_DOWN || button == BUTTON_COMMAND);
 
-
-    if (io_read_bit(button_channel_matrix[floor][button])) {
+    if (io_read_bit(button_channel_matrix[floor][button]))
         return 1;
-    } else {
+    else
         return 0;
-    }    
 }
 
+void elev_set_button_lamp(elev_button_type_t button, int floor, int value) {
+    assert(floor >= 0);
+    assert(floor < N_FLOORS);
+    assert(!(button == BUTTON_CALL_UP && floor == N_FLOORS - 1));
+    assert(!(button == BUTTON_CALL_DOWN && floor == 0));
+    assert(button == BUTTON_CALL_UP || button == BUTTON_CALL_DOWN || button == BUTTON_COMMAND);
 
-int elev_get_floor_sensor_signal(void) {
-    if (io_read_bit(SENSOR_FLOOR1)) {
-        return 0;
-    } else if (io_read_bit(SENSOR_FLOOR2)) {
-        return 1;
-    } else if (io_read_bit(SENSOR_FLOOR3)) {
-        return 2;
-    } else if (io_read_bit(SENSOR_FLOOR4)) {
-        return 3;
-    } else {
-        return -1;
-    }
+    if (value)
+        io_set_bit(lamp_channel_matrix[floor][button]);
+    else
+        io_clear_bit(lamp_channel_matrix[floor][button]);
 }
-
-
-int elev_get_stop_signal(void) {
-    return io_read_bit(STOP);
-}
-
-
-int elev_get_obstruction_signal(void) {
-    return io_read_bit(OBSTRUCTION);
-}
-
-
-
-
-
