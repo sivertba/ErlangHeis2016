@@ -4,7 +4,7 @@ Det var dristig å prøve å lære seg ett helt nytt språk til ett større pros
 
 #####2016-02-11:
 Trenger hjelp fra Kjetil med:
--Hvordan fungerer driveren
--få til simulatoren
--spørre dumme spørsmål om å koble til flere maskiner.
+* Hvordan fungerer driveren
+* Få til simulatoren
+* Spørre dumme spørsmål om å koble til flere maskiner.
  
