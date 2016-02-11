@@ -10,3 +10,6 @@ Trenger hjelp fra Kjetil med:
 
  
 #####2016-02-18:
+*Må Gjøre endringer i FSM modul
+*Må se nærmere på driver
+*spørre om server / orderHandler
