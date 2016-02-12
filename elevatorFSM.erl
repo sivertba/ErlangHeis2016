@@ -1,20 +1,11 @@
 -module (elevatorFSM).
--compile(export_all).
--export ([start/0]).
-%-behaviour (gen_fsm).
+%-compile(export_all).
+-behaviour (gen_fsm).
 
-%Application Porgramming Interface 
-%-export ([function/arity]).
-
-%%gen_fsm callbacks 
-
-%-export([init/1, handle_event/3, handle_sync_event/4, handle_info/3,
-%         terminate/3, code_change/4,
-%         % custom state names
-%         idle/2, idle/3, idle_wait/2, idle_wait/3, negotiate/2,
-%         negotiate/3, wait/2, ready/2, ready/3]).
 
 -define (DOOR_OPEN_TIME, 3000).
+
+
 
 motorUp(Pid) -> Pid ! {motor,up}.
 motorDown(Pid) -> Pid ! {motor,down}.
@@ -27,7 +18,8 @@ initCompleted(Pid) -> Pid ! {init,complete}.
 newDirectionRequest(Pid) ->
 	Pid ! {direction, request, self()},
 	receive
-		{direction, respons, Direction}
+		{direction, respons, Direction} ->
+			Direction
 	end.
 
 start(Pid) -> 
