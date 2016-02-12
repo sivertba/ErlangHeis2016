@@ -8,8 +8,21 @@ Trenger hjelp fra Kjetil med:
 * Få til simulatoren
 * Spørre dumme spørsmål om å koble til flere maskiner.
 
- 
 #####2016-02-18:
 * Må Gjøre endringer i FSM modul
 * Må se nærmere på driver
 * Spørre om server / orderHandler
+
+#####2016-02-25:
+
+#####2016-03-03:
+
+#####2016-03-31:
+
+#####2016-04-7:
+
+#####2016-04-14:
+
+#####2016-04-21:
+
+
