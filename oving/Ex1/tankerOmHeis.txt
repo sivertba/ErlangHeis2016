@@ -1,0 +1,36 @@
+Q:
+What if the software controlling one of the elvators suddeny crashes?
+
+A:
+De andre heisene må ta for seg ordrene til heisen hvis programvare streiker.
+
+Q:
+What if it doesn't crash, but hangs?
+
+A:
+Hvis en heis ikke svarer på kommunikasjon etter x forsøk på kontakt må ordrene til den heisen tas over.
+
+Q:
+What if a message between machines is lost?
+
+A:
+Må ha en eller annen form for Echo/copy/over/bekreftelse på mottagelse /roger
+
+Q:
+What if the network cable is suddenly disconnected? Then re-connected?
+
+A:
+anta at de andre heisen er nede, og fortsette som om de andre ikke var oprasjonelle. Hele tiden sende ut meldinger i søken om gjenetablert kontakt.
+
+Q:
+What if a user of the system is being a troll?
+
+A:
+Sue the user!
+Eventuelt prøve å helgardere seg som best man kan.
+
+Q:
+What if the elevator car never arrives at its destination?
+
+A:
+Hvis en gitt tid har gått uten at den øverste orderne i ordrekøen er blitt betjent må heisen som holder på med den orderen må da behandles som nede eller hengt opp slik at den orderen blir betjent av en av de andre heisene.

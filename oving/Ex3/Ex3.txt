@@ -1,0 +1,7 @@
+Åpne shell 1
+1>{ok, ListenSocket} = gen_tcp:listen(8091, [{active, true}, binary]).
+1>{ok, AcceptSocket} = gen_tcp:accept(ListenSocket).
+åpne shell 2
+2>{ok, Socket} = gen_tcp:connect({127,0,0,1}, 8091, [binary, {active,true}]).
+2>gen_tcp:send(Socket, "Heisann Hoppsann!").
+1>flush().

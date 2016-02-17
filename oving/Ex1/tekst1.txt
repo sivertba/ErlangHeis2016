@@ -1,0 +1,73 @@
+3)
+
+Q:
+What is concurrency? What is parallelism? What's the difference?
+
+A:
+Concurrency er når 2 eller flere beregninger kan starte, kjøre og avslutte i overlappende tidsperioder. Dette kan gjøres på en kjerne, også kjent som multitasking. 
+
+Parallelisme er når du har beregninger som er uavhenging av hverandre blir startet, kjørt og  avsluttet samtidig eller i overlappende tidsperioder.
+
+All parallellisme er Concurrency, men ikke andre veien. For å ha parrallisme må du kunne kjøre 2 prosesser samtidig. 
+
+Q:
+Why have machines become increasingly multicore in the past decade?
+
+A:
+I stor grad for å forbedre hastighet. Det er begrensninger på hvor raske en enkelt kjernet prosessor kan være, og ved å bruke smarte algoritmer kan man dra nytte av flere kjerner i beregninger. 
+Man også redusere energiforbruket.
+Man kan også få høyere nivå av parallellisme.
+
+Q:
+What kinds of problems motivates the need for concurrent execution? (Or phrased differently: What problems do concurrency help in solving?)
+
+A:
+MAnge systemer i dag bruker flere kjerner, for å kunne dra full nytte av det må man bruke concurrency til beregninger.
+
+
+Q:
+Does creating concurrent programs make the programmer's life easier? Harder? Maybe both? (Come back to this after you have worked on part 4 of this exercise)
+
+A:
+Gjør livet vanskeliger, men det vil være mulig å ha et skille mellom systemets komponenter, bruke mer enn en styringsløkke.
+
+Q:
+What are the differences between processes, (native) threads, green threads, and coroutines?
+
+A:
+En prosess er en kjøring (eksekvering) av et program, altså en sekvens av rutiner som kjøres for å oppnå ett bestemt input/output-forhold
+
+En tråd er en sekvens eller rutine i ett program, som kan kjørs uavhengig av andre tråder i programmet.
+
+Grønn tråd bruker ikke OS'ets egne scheduler, men abstraherer det heller til programmmet som kjøres
+
+Coroutiner er sekvenser som gjerne ikke må brytes opp.
+
+Q:
+Which one of these do pthread_create() (C/POSIX), threading.Thread() (Python), go (Go) create?
+
+A:
+pthread_create() oppretter en native tråd
+threading.Thread() oppretter en native tråd
+Go oppretter en grønn tråd
+
+Q:
+How does pythons Global Interpreter Lock (GIL) influence the way a python Thread behaves?
+
+A:
+Den tillater kun å kjøre en tråd av gangen.
+
+Q:
+With this in mind: What is the workaround for the GIL (Hint: it's another module)?
+
+A:
+Hvis du bruker en tolker, som for eksempel Iron Python eller Cython, får du tilgang til en multiprosess/parallellisme modul.
+
+Q:
+What does func GOMAXPROCS(n int) int change?
+
+A:
+Antallet prosesser som maksimalt har lov til å kjøre samtidig. 
+
+
+
