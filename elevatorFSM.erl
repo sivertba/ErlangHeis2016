@@ -1,5 +1,5 @@
 -module (elevatorFSM).
--export ([start/1, e_arrivedAtFloow/1, e_newOrder/1]).
+-export ([start/1, e_arrivedAtFloor/1, e_newOrder/1]).
 
 
 -define (DOOR_OPEN_TIME, 3000).
