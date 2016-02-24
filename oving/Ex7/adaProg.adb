@@ -1,7 +1,7 @@
 with Ada.Text_IO, Ada.Integer_Text_IO, Ada.Numerics.Float_Random;
 use  Ada.Text_IO, Ada.Integer_Text_IO, Ada.Numerics.Float_Random;
 
-procedure exercise7 is
+procedure adaProg is
 
     Count_Failed    : exception;    -- Exception to be raised when counting fails
     Gen             : Generator;    -- Random number generator
@@ -18,10 +18,21 @@ procedure exercise7 is
     protected body Transaction_Manager is
         entry Finished when Finished_Gate_Open or Finished'Count = N is
         begin
-            ------------------------------------------
-            -- PART 3: Complete the exit protocol here
-            ------------------------------------------
-        end Finished;
+	    if Finished'Count = N - 1 then
+            	Finished_Gate_Open := True;
+            	Should_Commit := True;
+            end if;
+
+            if Aborted then
+            	Should_Commit := False;
+            end if;
+
+            if Finished'Count = 0 then
+            	Finished_Gate_Open := False;
+            	Aborted := False;
+            end if;
+	
+	end Finished;
 
         procedure Signal_Abort is
         begin
@@ -40,10 +51,18 @@ procedure exercise7 is
     
     function Unreliable_Slow_Add (x : Integer) return Integer is
     Error_Rate : Constant := 0.15;  -- (between 0 and 1)
+    subtype uniform is Float range 0.0 .. 1.0;
+    F : uniform;
     begin
-        -------------------------------------------
-        -- PART 1: Create the transaction work here
-        -------------------------------------------
+	F := Random(Gen);
+	 if F > Error_Rate then
+		delay Duration(Random(Gen)+1.0);
+		return x+10;
+   	else
+		delay Duration(Random(Gen)*0.5);
+		raise Count_Failed;
+		
+   	end if;
     end Unreliable_Slow_Add;
 
 
@@ -60,8 +79,21 @@ procedure exercise7 is
         loop
             Put_Line ("Worker" & Integer'Image(Initial) & " started round" & Integer'Image(Round_Num));
             Round_Num := Round_Num + 1;
+	    
 
-            ---------------------------------------
+	   begin
+		Num :=Unreliable_Slow_Add(Num);
+		Manager.Finished;
+	    
+	   exception
+		when Count_Failed =>
+			begin
+				Manager.Signal_Abort;
+				Manager.Finished;
+			end;
+	   end;
+
+
             -- PART 2: Do the transaction work here             
             ---------------------------------------
             
@@ -71,6 +103,7 @@ procedure exercise7 is
                 Put_Line ("  Worker" & Integer'Image(Initial) &
                              " reverting from" & Integer'Image(Num) &
                              " to" & Integer'Image(Prev));
+		Num := Prev;
                 -------------------------------------------
                 -- PART 2: Roll back to previous value here
                 -------------------------------------------
@@ -90,6 +123,4 @@ procedure exercise7 is
 
 begin
     Reset(Gen); -- Seed the random number generator
-end exercise7;
-
-
+end adaProg;
