@@ -7,6 +7,9 @@
 
 -define(POLL_PERIOD, 50).
 
+%This Driver and all the belonging files are shamelessly stolen from Kjetil Kjeka.
+%We deemed this as a better alternative to the approach used in the example driver folder.
+
 %% Module API
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
