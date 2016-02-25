@@ -14,13 +14,15 @@ Trenger hjelp fra Kjetil med:
 * Spørre om server / orderHandler
 
 #####2016-02-25:
-
-#####2016-03-03:
-Må spørre Kjetil om alt vi ikke fikk spurt om 25.02.:
+Får spurt Kjetil på fredag om:
 * Distribuering ov ordreserver over datamaskiner
 * Hvorfor Kjetil flusher i alle tilstander???
 * Er det for å tømme for meldinger som kom tidligere (f.eks. mens vi stod med åpne dører) som vi skiter i?
 * PLAUSIBILITY CHECKS??? Explain?
+* Connection-modulen: den kobler seg til alt den tar imot, og sender ut eget nodenavn/id. Kjøres dette på tre pc'er samtidig på magisk vis?
+
+#####2016-03-03:
+
 
 #####2016-03-31:
 
