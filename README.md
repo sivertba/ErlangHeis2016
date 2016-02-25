@@ -19,7 +19,8 @@ Trenger hjelp fra Kjetil med:
 Må spørre Kjetil om alt vi ikke fikk spurt om 25.02.:
 * Distribuering ov ordreserver over datamaskiner
 * Hvorfor Kjetil flusher i alle tilstander???
-  (er det for å tømme for meldinger som kom tidligere (f.eks. mens vi stod med åpne dører) som vi skiter i?)
+* Er det for å tømme for meldinger som kom tidligere (f.eks. mens vi stod med åpne dører) som vi skiter i?
+* PLAUSIBILITY CHECKS??? Explain?
 
 #####2016-03-31:
 
