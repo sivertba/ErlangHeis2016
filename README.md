@@ -20,6 +20,7 @@ Får spurt Kjetil på fredag om:
 * Er det for å tømme for meldinger som kom tidligere (f.eks. mens vi stod med åpne dører) som vi skiter i?
 * PLAUSIBILITY CHECKS??? Explain?
 * Connection-modulen: den kobler seg til alt den tar imot, og sender ut eget nodenavn/id. Kjøres dette på tre pc'er samtidig på magisk vis?
+* EPIPHANY: alt kjøres trippelt! Halleluja. Hva skjer da med konkurrerende ordredistributører?
 
 #####2016-03-03:
 
