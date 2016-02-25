@@ -16,6 +16,9 @@ Trenger hjelp fra Kjetil med:
 #####2016-02-25:
 
 #####2016-03-03:
+Må spørre Kjetil om alt vi ikke fikk spurt om 25.02.:
+* Distribuering ov ordreserver over datamaskiner
+* Hvorfor Kjetil flusher i alle tilstander???
 
 #####2016-03-31:
 
