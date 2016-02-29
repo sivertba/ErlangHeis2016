@@ -1,2 +1,0 @@
--module (connector).
--compile(export_all).
