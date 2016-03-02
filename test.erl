@@ -1,14 +1,14 @@
 -module (test).
 -compile(export_all).
 
-%Kan gi info om hvor lang tid mellom hver etasje
+%belongs to counter
+-define (TIME_TO_NEXT, 100).
+
+%can say something about time between orders
 counter(N) -> 
 	receive
-		{status, Pid} -> 
-			Pid ! {N,counter},counter(N+1);
-		{reset, Pid} -> 
-			Pid ! {ok,counter}, counter(0)
-	after 200 ->
+		{status, Receiver} -> Receiver ! {N},counter(N);
+		{reset, Receiver} -> Receiver ! {ok}, counter(0)
+	after ?TIME_TO_NEXT ->
 		counter(N+1)
 	end.
-
