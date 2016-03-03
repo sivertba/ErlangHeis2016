@@ -1,0 +1,31 @@
+In which rotehuet Marianna skriver ned ting hun kommer på når hun faktisk er i gang med å tenke heis.
+
+03.03.16
+connection-modulen sånn den er nå funker kanskje, men kan ha problemer pga korte nodenavn.
+Cookies var litt knotete.
+Men! world_list/1 tar en liste med hosts. 
+Dvs at vi kan ta inn en host-fil, hente ut alt som svarer ok på names og kjøre world_list på det. 
+Burde bli mindre knot. 
+(eller i alle fall mindre kode/mer elegant iom at den andre allerede er laget)
+
+Marianna gjør forsøk på å være Ingvild og lage oversikt:
+Moduler:
+- Driver (kokes med mindre vi får tid til å skrive egen?)
+- FSM
+- Connector
+- Kø-"objekt" (list_builder-style) 
+  - (denne burde kanskje ha lov til å snakke med distributøren direkte/være del av den)
+  - Nei! Da kan FSM-manager spørre kø-objektets manager direkte om det er en ordre i etasjen
+  - det er denne som må flette etter nettverksbrudd
+- Kostfunksjon/ordredistributør
+- 1001 managere
+  - Hvordan adresserer vi prosesser på andre noder? Heaven help. 
+  - Én sambands-offisér, dvs hver node har en manager som kun sender til de andre sambands-managerene kanskje?
+  
+  
+  Ordredistributør, tanker:
+  Får forespørsel fra stående heis med etasje og last dir. 
+  Sjekker etetr ordre i samme retning, nærmest først, deretter i motsatt retning. 
+  Hvis det er ordre som bør tas, sjekker om det finnes en heis i bevegelse på vei dit. 
+  (burde kanskje få inn alle heisers status samtidig)
+  Hvis ingen andre heiser er på vei, gi beskjed om å få ræva i gir.
