@@ -27,7 +27,7 @@ unpackPing({Name, _Port}) ->
 
 list_builder(HostList, []) ->
 	HostList;
-list_builder(NodeList, PidList) ->
+list_builder(HostList, PidList) ->
 	receive
 		{new_list_item, Pid, Host, {ok, _Nodes}} ->
 			list_builder([Host | HostList], lists:keydelete(Pid, 1, PidList));
