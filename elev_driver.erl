@@ -2,22 +2,24 @@
 -export([start/2, stop/0]).
 -export([init/1, set_motor_direction/1, set_door_open_lamp/1, set_stop_lamp/1, set_floor_indicator/1, set_button_lamp/3, foreach_button/1]).
 
+%This Driver and all the belonging files are shamelessly copied and modified 
+%from Kjetil Kjeka's github repo, found at https://github.com/kjetilkjeka/sanntidsheis
+%We deemed this as a better alternative to the approach used in the example driver folder.
+%And we didn't want to "copy" http://erlang.org/doc/tutorial/c_port.html ourselves.
+
 -define(NUMBER_OF_FLOORS, 4).
 -define(BUTTON_TYPES, [up, down, command]).
-
 -define(POLL_PERIOD, 50).
 
-%This Driver and all the belonging files are shamelessly stolen from Kjetil Kjeka.
-%We deemed this as a better alternative to the approach used in the example driver folder.
 
 %% Module API
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init(ElevatorType) -> call_port({elev_init, ElevatorType}).
-set_motor_direction(Direction) -> call_port({elev_set_motor_direction, Direction}).
-set_door_open_lamp(State) -> call_port({elev_set_door_open_lamp, State}).
 set_stop_lamp(State) -> call_port({elev_set_stop_lamp, State}).
+set_door_open_lamp(State) -> call_port({elev_set_door_open_lamp, State}).
 set_floor_indicator(Floor) -> call_port({elev_set_floor_indicator, Floor}).
+set_motor_direction(Direction) -> call_port({elev_set_motor_direction, Direction}).
 set_button_lamp(Floor, Direction, State) -> call_port({elev_set_button_lamp, Direction, Floor, State}).
 
 %FunctionForeachButton(Floor, Direction)
