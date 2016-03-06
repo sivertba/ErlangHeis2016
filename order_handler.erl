@@ -3,22 +3,24 @@
 
 -define(ORDER_EXECUTION_TIME, 10000).
 
-%Tenker her at vi bruker noe sånt som:
-%	register(OrderBankPID,Pid)
-%Ett eller annet sted
+-record (order, {floor,direction,timestamp = erlang:now(), node = node()).
 
-get_orders(Pid, OrderBankPID) -> OrderBankPID ! {get_orders, Pid}.
+%Tenker her at vi bruker noe sånt som:
+%	register(orderbank,OrderBankPID)
+%Ett eller annet sted, sånn at vi kan kalle på tvers av noder.
+
 add_order(Order, OrderBankPID) -> OrderBankPID ! {add, Order}.
 remove_order(Order, OrderBankPID) -> OrderBankPID ! {remove, Order}.
 retract_order(Order, OrderBankPID) -> OrderBankPID ! {retract, Order}.
+get_orders(Recipient, OrderBankPID) -> OrderBankPID ! {get_orders, Recipient}.
 
 %checks if order is executed within some time.
-order_guard(Order) ->
+order_guard(Order, OrderBankPID) ->
 	receive
 		{order_handeld} -> 
-			remove_order(Order)
+			remove_order(Order, OrderBankPID)
 	after ?ORDER_EXECUTION_TIME -> 
-		retract_order(Order)
+		retract_order(Order, OrderBankPID)
 	end.
 
 order_bank() ->
@@ -34,7 +36,7 @@ order_bank(L) ->
 		{remove, Order} -> 
 			?MODULE:order_bank(lists:delete(Order, L));
 		{retract, Order} ->
-			NewL = Order ++ L,
+			NewL = [Order] ++ L,
 			?MODULE:order_bank(?MODULE:remove_duplicates(NewL))
 	end.
 
