@@ -1,48 +1,53 @@
 -module (test).
 -compile(export_all).
 
-init() ->
-	
-	Hosts = net_adm:host_file(),
-	Mum = self(),
+%ElvatorType is simulator or 
+start(ElevatorType) ->
+	register(queue,spawn(order_handler,order_bank,[])),
+	connection:init(),
 
-	lists:foreach(fun(Elem) -> spawn(?MODULE,getNodes,[Elem,Mum]) end, Hosts),
-	
-	NodeListPID = spawn_monitor(?MODULE,list_control,[[]]),
+	DriverManagerPID = spawn(fun() -> driver_manager_init() end),
+    elev_driver:start(DriverManagerPID, ElevatorType),
 
+    ButtonLightManagerPID = spawn(fun() -> button_light_manager_init() end),
 
-	 = list_builder([], NodeListPID).
-
-
-getNodes(Host, Listener) ->
-	timer:exit_after(3000, time_exceeded),
-	Message = net_adm:names(Host),
-	Listener ! {new_list_item, self(), Message}.
+  	DriverManagerPID ! init_completed,
+  	ButtonLightManagerPID ! init_completed.
 
 
-tup(Tupel) ->
-	{Name,_Port} = Tupel,
-	net_adm:ping(Name).
+driver_manager_init() ->
+    receive init_completed ->
+	    ok
+    end,
+    driver_manager().
+driver_manager() ->
+    receive
+	{new_order, Direction, Floor} ->
+	    order_distributer:add_order(Floor, Direction);
+	{floor_reached, Floor} ->
+	    elev_driver:set_floor_indicator(Floor),
+	    elev_fsm:event_floor_reached(fsm),
+	    schedule:floor_reached(schedule, Floor)
+    end,
+    driver_manager().
 
-
-list_control(List) ->
-	receive
-		{add, ToAdd} ->
-			list_control(List ++ ToAdd);
-		{send, Pid} ->
-			Pid ! {List}
-	end.
-
-
-list_builder(NodeList, []) ->
-	NodeList;
-list_builder(NodeList, PidList) ->
-	receive
-		{new_list_item, Pid, {ok, Item}} ->
-			list_builder([Item|List], lists:delete(Pid, PidList));
-		{new_list_item, Pid, {error, _Reason}} ->
-			list_builder(List, lists:delete(Pid, PidList));
-		{'DOWN', _Ref, process, PID, _Reason} ->
-			list_builder(List, lists:delete(Pid, PidList))
-	end.
-	
+%kanskje gjøre dette til en egen prosess i dirveren.
+button_light_manager_init() ->
+    receive init_completed ->
+	    ok
+    end,
+    button_light_manager().
+button_light_manager() ->
+    SetLightFunction = fun(Floor, Direction) ->
+			       ButtonState = case order_distributer:is_order(Floor, Direction) of
+						 true ->
+						     on;
+						 false ->
+						     off
+					     end,
+			       elev_driver:set_button_lamp(Floor, Direction, ButtonState)
+		       end,	 
+    
+    elev_driver:foreach_button(SetLightFunction),
+    timer:sleep(200),
+    button_light_manager().
