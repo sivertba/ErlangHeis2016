@@ -10,7 +10,7 @@
 -record (order, {floor,direction}).
 
 start() ->
-	register(queue,spawn(?MODULE,order_bank,[])).
+	register(?QUEUE_PID,spawn(?MODULE,order_bank,[])).
 
 add_order(Floor,Direction) ->
 	add_order(#order{floor = Floor, direction = Direction}).
