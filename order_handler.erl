@@ -1,27 +1,20 @@
 -module (order_handler).
 -compile(export_all).
 
--define(ORDER_EXECUTION_TIME, 20000). %20 seconds
+%Forslag til API:
+-export ([start/0,add_order/2,get_next_order/3]).
+
+-define(ORDER_EXECUTION_DEADLINE, 20000). %20 seconds
 -define (ORDER_BANK_PID, orderbank).
 
 -record (order, {floor,direction}).
 
-%Tenker her at vi bruker noe sånt som:
-%	register(?ORDER_BANK_PID,?ORDER_BANK_PID)
-%Ett eller annet sted, sånn at vi kan kalle på tvers av noder.
-
-%TANKE
-%Vi lager to ordrebanker, en kø og en som har oversikt over 
-%hvem som blir behandlet, og så tar vi det som ikke blir behandlet, 
-%men som fortsatt er i køen og sender inn til get_next ...
-
 start() ->
 	register(orderbank,spawn(?MODULE,order_bank,[])).
 
-make_order(Floor, Direction) ->
-	#order{floor = Floor, direction = Direction}.
-
-add_order(Order) when Order#order.direction =:= none -> 
+add_order(Floor,Direction) ->
+	add_order(#order{floor = Floor, direction = Direction}).
+add_order(Order) when Order#order.direction =:= idle -> 
 	?ORDER_BANK_PID ! {add, Order};
 add_order(Order) ->
 	?ORDER_BANK_PID ! {add, Order},
@@ -31,100 +24,97 @@ remove_order(Order) ->
 	?ORDER_BANK_PID ! {remove, Order},
 	send_to_orderbank_on_nodes({remove, Order}).
 
-retract_order(Order) when Order#order.direction =:= none -> 
+retract_order(Order) when Order#order.direction =:= idle -> 
 	?ORDER_BANK_PID ! {retract, Order};
 retract_order(Order) ->
 	?ORDER_BANK_PID ! {retract, Order},
 	send_to_orderbank_on_nodes({retract, Order}).
 
-get_next_order(Last_floor, Direction) ->
-	?ORDER_BANK_PID ! {get_orders, self()},
-	receive
-		L ->
-			if
-				L =:= [] -> 
-					?MODULE:get_next_order(Last_floor, Direction);
-		 		true -> 
-		 			order_list_filter(Last_floor,Direction,L)
-			end
+get_next_order(Last_floor, Direction,Manager) ->
+	L = get_orders(),
+	if	L =:= [] -> 
+			?MODULE:get_next_order(Last_floor, Direction,Manager);
+		true -> 
+		 	Order = order_list_filter(Last_floor,Direction,L),
+		 	remove_order(Order),
+		 	%the spawned functions needs to know how it went
+		 	Manager ! {Order, spawn(?MODULE,order_monitor,[Order])}
 	end.
 	
-
-%Denne burde ta hensyn til mer...
 order_monitor(Order) ->
 	receive
-		{order_handeld} -> 
-			remove_order(Order);
-		{order_aborted} ->
-			retract_order(Order)	
-	after ?ORDER_EXECUTION_TIME -> 
+		{order_handeld} -> ok;
+		%found something better
+		{order_aborted} -> retract_order(Order)
+	after ?ORDER_EXECUTION_DEADLINE -> 
 		retract_order(Order)
 	end.
 
 order_bank() ->
-	?MODULE:order_bank([]).
+	order_bank([]).
 order_bank(L) ->
 	%Burde legge inn noe for å ta høyde for nettverksbrudd og fletting.
 	%Se tanke
 	receive
 		{get_orders, Pid} ->
 			Pid ! L,
-			?MODULE:order_bank(?MODULE:remove_duplicates(L));
+			?MODULE:order_bank(remove_duplicates(L));
 		{add, Order} -> 
 			NewL = lists:append(L,[Order]),
-			?MODULE:order_bank(?MODULE:remove_duplicates(NewL));
+			?MODULE:order_bank(remove_duplicates(NewL));
 		{remove, Order} -> 
 			?MODULE:order_bank(lists:delete(Order, L));
 		{retract, Order} ->
 			NewL = lists:append([Order],L),
-			?MODULE:order_bank(?MODULE:remove_duplicates(NewL))
+			?MODULE:order_bank(remove_duplicates(NewL))
 	end.
 
 %Helpers
-
 order_list_filter(Last_floor,Direction,L) ->
-	if  (Direction =:= up) or  (Direction =:= none) ->
-			PossibleOrders = lists:filter(fun(Elem) -> order_filter(Elem,Last_floor,Direction) end, L),
-			ok;
-		(Direction =:= down) ->
-			PossibleOrders = lists:filter(fun(Elem) -> order_filter(Elem,Last_floor,Direction) end, L),
-			ok
+	%trenger mer testing om PossibleOrders er den den sier den er.
+	PossibleOrders = lists:filter(fun(Elem) -> order_filter(Elem,Last_floor,Direction) end, L),
+	if
+		Direction =:= up ->
+			lists:nth(1,PossibleOrders);
+		Direction =:= down ->
+			lists:last(PossibleOrders);
+		true ->
+			% ???
+			lists:nth(1,PossibleOrders)
 	end.
 
 order_filter(#order{floor=Floor,direction=Dir},Last_floor, Direction) ->
-	%{_,Floor,OrderDir} = Tup, 
-	if 	((Dir =:= up) or (Dir =:= none)) and (Direction =:= up) ->
+	%{_,Floor,Dir} = Tup, 
+	if 	((Dir =:= up) or (Dir =:= idle)) and (Direction =:= up) ->
 			if
-				Last_floor < Floor -> 
+				Last_floor > Floor -> 
 					false;
-				Last_floor >= Floor -> 
+				Last_floor =< Floor -> 
 					true
 			end;
-		((Dir =:= down) or (Dir =:= none)) and (Direction =:= down) ->
+		((Dir =:= down) or (Dir =:= idle)) and (Direction =:= down) ->
 			if
 				Last_floor < Floor -> 
 					false;
 				Last_floor >= Floor-> 
 					true
-			end
+			end;
+		Direction =:= idle -> 
+			true;
+		%Noe vi ikke har tatt høyde for?
+		true -> false
 	end.
 
 remove_duplicates(L) ->
-	%gjør at det er en tilfeldig rekkefølge på ordre ...
-	%men ingen duplikater!
+	%sorterer etter etasje, tilfeldigvis!
+	%deretter etter down, idle, up
+	%og ingen duplikater!
 	ordsets:from_list(L).
 
 send_to_orderbank_on_nodes(Msg) ->
 	lists:foreach(fun(Node) -> {orderbank, Node} ! Msg end,nodes()).
 
-%TESTING
-print_order(Order) ->
-	io:format("Floor: ~w, Direction: ~w~n", [Order#order.floor, Order#order.direction]).
-
-get_orders(Recipient) -> 
-	?ORDER_BANK_PID ! {get_orders, Recipient}.
-
-print_orders() ->
+get_orders() ->
 	?ORDER_BANK_PID ! {get_orders, self()},
 	receive
 		L -> NewL = L
