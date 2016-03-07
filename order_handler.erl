@@ -4,31 +4,31 @@
 %Forslag til API:
 -export ([start/0,add_order/2,get_next_order/3]).
 
--define(ORDER_EXECUTION_DEADLINE, 20000). %20 seconds
--define (ORDER_BANK_PID, orderbank).
+-define(ORDER_EXECUTION_DEADLINE, 5000). %5 seconds
+-define (QUEUE_PID, queue).
 
 -record (order, {floor,direction}).
 
 start() ->
-	register(orderbank,spawn(?MODULE,order_bank,[])).
+	register(queue,spawn(?MODULE,order_bank,[])).
 
 add_order(Floor,Direction) ->
 	add_order(#order{floor = Floor, direction = Direction}).
 add_order(Order) when Order#order.direction =:= idle -> 
-	?ORDER_BANK_PID ! {add, Order};
+	?QUEUE_PID ! {add, Order};
 add_order(Order) ->
-	?ORDER_BANK_PID ! {add, Order},
-	send_to_orderbank_on_nodes({add, Order}).
+	?QUEUE_PID ! {add, Order},
+	send_to_queue_on_nodes({add, Order}).
 
 remove_order(Order) -> 
-	?ORDER_BANK_PID ! {remove, Order},
-	send_to_orderbank_on_nodes({remove, Order}).
+	?QUEUE_PID ! {remove, Order},
+	send_to_queue_on_nodes({remove, Order}).
 
 retract_order(Order) when Order#order.direction =:= idle -> 
-	?ORDER_BANK_PID ! {retract, Order};
+	?QUEUE_PID ! {retract, Order};
 retract_order(Order) ->
-	?ORDER_BANK_PID ! {retract, Order},
-	send_to_orderbank_on_nodes({retract, Order}).
+	?QUEUE_PID ! {retract, Order},
+	send_to_queue_on_nodes({retract, Order}).
 
 get_next_order(Last_floor, Direction,Manager) ->
 	L = get_orders(),
@@ -38,15 +38,16 @@ get_next_order(Last_floor, Direction,Manager) ->
 		 	Order = order_list_filter(Last_floor,Direction,L),
 		 	remove_order(Order),
 		 	%the spawned functions needs to know how it went
-		 	Manager ! {Order, spawn(?MODULE,order_monitor,[Order])}
+		 	Manager ! {Order, spawn(?MODULE,order_monitor,[Order,Manager])}
 	end.
 	
-order_monitor(Order) ->
+order_monitor(Order,Manager) ->
 	receive
 		{order_handeld} -> ok;
 		%found something better
 		{order_aborted} -> retract_order(Order)
 	after ?ORDER_EXECUTION_DEADLINE -> 
+		Manager ! timeout,
 		retract_order(Order)
 	end.
 
@@ -111,11 +112,11 @@ remove_duplicates(L) ->
 	%og ingen duplikater!
 	ordsets:from_list(L).
 
-send_to_orderbank_on_nodes(Msg) ->
-	lists:foreach(fun(Node) -> {orderbank, Node} ! Msg end,nodes()).
+send_to_queue_on_nodes(Msg) ->
+	lists:foreach(fun(Node) -> {queue, Node} ! Msg end,nodes()).
 
 get_orders() ->
-	?ORDER_BANK_PID ! {get_orders, self()},
+	?QUEUE_PID ! {get_orders, self()},
 	receive
 		L -> NewL = L
 	end,
