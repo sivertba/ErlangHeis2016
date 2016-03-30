@@ -4,8 +4,7 @@
 %Forslag til API:
 -export ([	start/0,
 			add_order/2,
-			get_orders/0,
-			get_next_order/3]).
+			get_orders/0]).
 
 -define(QUEUE_PID, queue).
 -define(DETS_TABLE_NAME, "ordersETS").
@@ -18,40 +17,36 @@ start() ->
 	%Burde gjøres i "main"
 	register(?QUEUE_PID,spawn(?MODULE,order_bank,[])),
 	
-	dets:open_file(?DETS_TABLE_NAME, {filename, ?DETS_TABLE_NAME,acess,read}),
-	% ???
+	%Update from storage
+	dets:open_file(?DETS_TABLE_NAME, [{type,bag}]),
+    Orders_From_Disk = dets:lookup(?DETS_TABLE_NAME, order),
+    dets:close(?DETS_TABLE_NAME),
 
+    %Request orders from other nodes
+    Orders_From_Nodes = get_orders_from_connected_nodes(),
+
+    Gathered_Orders = Orders_From_Nodes ++ Orders_From_Disk,
+    lists:foreach(fun(E) -> add_order(E) end, Gathered_Orders),
 	ok.
 
 add_order(Floor,Direction) ->
 	add_order(#order{floor = Floor, direction = Direction}).
+	
 add_order(Order) when Order#order.direction == command -> 
 	?QUEUE_PID ! {add, Order};
 add_order(Order) ->
 	?QUEUE_PID ! {add, Order},
 	send_to_queue_on_nodes({add, Order}).
 
+remove_order(Order) -> 
+	?QUEUE_PID ! {remove, Order},
+	send_to_queue_on_nodes({remove, Order}).
+
 get_orders() ->
 	?QUEUE_PID ! {get_orders, self()},
 	receive
 		L -> L
 	end.
-
-%Denne er helt feil nå
-get_next_order(Last_floor, Direction,Manager) ->
-	L = get_orders(),
-	if	L == [] -> 
-			?MODULE:get_next_order(Last_floor, Direction,Manager);
-		L =/= [] -> 
-		 	Order = order_list_filter(Last_floor,Direction,L),
-		 	remove_order(Order),
-		 	%the spawned functions needs to know how it went
-		 	Manager ! {Order, spawn(?MODULE,order_monitor,[Order,Manager])}
-	end.
-
-remove_order(Order) -> 
-	?QUEUE_PID ! {remove, Order},
-	send_to_queue_on_nodes({remove, Order}).
 
 order_monitor(Order,Manager) ->
 	receive
@@ -64,27 +59,41 @@ order_monitor(Order,Manager) ->
 		add_order(Order)
 	end.
 
-%Burde skrives om til å lagre på disk (dets) også
 order_bank(L) ->
-	%DETS HER
+	dets:open_file(?DETS_TABLE_NAME, [{type,bag}]),
 	receive
 		{get_orders, Pid} ->
+			dets:close(?DETS_TABLE_NAME),
 			Pid ! L,
 			?MODULE:order_bank(L);
-		{add, Order} -> 
-			?MODULE:order_bank(remove_duplicates(Order,L));
+
+
+		{add, Order} ->
+			Guard = is_duplicates(Order,L),
+			if
+				Guard ->
+					dets:close(?DETS_TABLE_NAME),
+					?MODULE:order_bank(L);
+				true -> 
+					dets:insert(?DETS_TABLE_NAME, Order),
+    				dets:close(?DETS_TABLE_NAME),
+    				?MODULE:order_bank(L++Order)
+			end;
+
+
 		{remove, Order} -> 
+			dets:delete_object(?DETS_TABLE_NAME, Order),
+    		dets:close(?DETS_TABLE_NAME),
 			?MODULE:order_bank(lists:delete(Order, L))
+
+	after 50 -> 
+	    dets:close(?DETS_TABLE_NAME),
+	    ?MODULE:order_bank(L)
 	end.
 
-remove_duplicates(Order,L) ->
+is_duplicates(Order,L) ->
 	Bool = lists:any(fun(E) -> order_match(E,Order) end, L),
-	if
-		 Bool->
-			L;
-		true -> 
-			L ++ Order	
-	end.	
+	Bool.	
 
 order_match(A,B) -> 
 	if
@@ -112,10 +121,13 @@ floor_compare(A,B) ->
 		A#order.floor > B#order.floor -> false
 	end.
 
+is_command_order(Order) when Order#order.direction == command -> true;
+is_command_order(Order) when Order#order.direction /= commnad -> false.
+
 order_is_in_list(O,List) ->
 	lists:any(fun(E) -> order_match(E,O) end ,List).
 
-order_list_filter(Last_floor,Direction,L) ->
+orders_on_path(Last_floor,Direction,L) ->
 	PossibleOrders = lists:filter(fun(Elem) -> on_path(Elem,Last_floor,Direction) end, L),
 	SortedOrders = lists:sort(fun(A,B) -> timestamp_compare(A,B) end, PossibleOrders),
 	lists:nth(1,SortedOrders).
@@ -141,14 +153,24 @@ on_path(#order{floor=Floor,direction=Dir},Last_floor, Direction) ->
 			false
 	end.
 
+get_orders_from_connected_nodes() ->
+	Receiver = spawn(?MODULE,magic_function,[[], self()]),
+	send_to_queue_on_nodes({get_orders, Receiver}),
+	receive
+		List -> 
+			List
+	after 100 -> 
+			[]
+	end.
+
+magic_function(List,Pid) -> 
+	receive
+		L -> 
+			RetList = List ++ (lists:filter(fun(E) -> not is_command_order(E) end, L)),
+			magic_function(RetList,Pid)
+	after 50 ->
+		Pid ! List
+	end.
+
 send_to_queue_on_nodes(Msg) ->
 	lists:foreach(fun(Node) -> {?QUEUE_PID, Node} ! Msg end,nodes()).
-
-%Må tenke bedre ...
-orderUpdate(L) ->
-	send_to_queue_on_nodes({get_orders,self()}),
-	receive
-		Orders -> ordsets:intersection(L,Orders)
-			lists:append(L,Orders)
-		after 50 -> ordsets:to_listj(L)
-	end.
