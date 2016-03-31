@@ -28,12 +28,12 @@ procedure ex8 is
         end Finished;
 	
 
-	entry Wait_Until_Aborted when Aborted is 
-	begin 
-		if Wait_Until_Aborted'Count = 0 then
-			Aborted := False;
-		end if;
-	end Wait_Until_Aborted;
+		entry Wait_Until_Aborted when Aborted is 
+		begin 
+			if Wait_Until_Aborted'Count = 0 then
+				Aborted := False;
+			end if;
+		end Wait_Until_Aborted;
 
 
         procedure Signal_Abort is
@@ -80,20 +80,23 @@ procedure ex8 is
 	    select
 			Manager.Wait_Until_Aborted;
 			Num := Prev + 5;
+			Put_Line( "  Worker" & Integer'Image( Initial )	& "changing from " & Integer'Image( Prev ) & " to " & Integer'Image( Num ) );
 	    then abort
 			begin 
 				Num := Unreliable_Slow_Add(Num);
 				Manager.Finished;
+				Put_Line ("  Worker" & Integer'Image(Initial) & " comitting" & Integer'Image(Num));
 			exception
 				when Count_Failed =>
 					begin
+						Put_Line( "  Worker" & Integer'Image( Initial ) & " aborting" );
 						Manager.Signal_Abort;
 					end;
 			end;
 	    end select;
 
             Prev := Num;
-            delay 2.5;
+            delay 2.0;
 
         end loop;
     end Transaction_Worker;
