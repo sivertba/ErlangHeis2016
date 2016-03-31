@@ -14,19 +14,17 @@
 
 %Må endres
 start() ->
-	%Burde gjøres i "main"
-	register(?QUEUE_PID,spawn(?MODULE,order_bank,[])),
 	
 	%Update from storage
 	dets:open_file(?DETS_TABLE_NAME, [{type,bag}]),
     Orders_From_Disk = dets:lookup(?DETS_TABLE_NAME, order),
     dets:close(?DETS_TABLE_NAME),
-
-    %Request orders from other nodes
-    Orders_From_Nodes = get_orders_from_connected_nodes(),
-
-    Gathered_Orders = Orders_From_Nodes ++ Orders_From_Disk,
-    lists:foreach(fun(E) -> add_order(E) end, Gathered_Orders),
+	
+	%Burde gjøres i "main"
+	register(?QUEUE_PID,spawn(?MODULE,order_bank,Orders_From_Disk)),
+	
+    %Request orders from other nodes and add
+    lists:foreach(fun(E) -> add_order(E) end, get_orders_from_connected_nodes()),
 	ok.
 
 add_order(Floor,Direction) ->
@@ -105,7 +103,7 @@ order_match(A,B) ->
 
 floor_match(A,B) -> 
 	if
-		(A#order.floor /= B#order.floor) -> true;
+		(A#order.floor == B#order.floor) -> true;
 		(A#order.floor /= B#order.floor) ->	false
 	end.
 
@@ -122,15 +120,16 @@ floor_compare(A,B) ->
 	end.
 
 is_command_order(Order) when Order#order.direction == command -> true;
-is_command_order(Order) when Order#order.direction /= commnad -> false.
+is_command_order(Order) when Order#order.direction /= command -> false.
 
 order_is_in_list(O,List) ->
 	lists:any(fun(E) -> order_match(E,O) end ,List).
 
+% nar bruker vi denne? nar trenger vi eldste ordre??
 orders_on_path(Last_floor,Direction,L) ->
 	PossibleOrders = lists:filter(fun(Elem) -> on_path(Elem,Last_floor,Direction) end, L),
-	SortedOrders = lists:sort(fun(A,B) -> timestamp_compare(A,B) end, PossibleOrders),
-	lists:nth(1,SortedOrders).
+	[First | Rest] = lists:sort(fun(A,B) -> timestamp_compare(A,B) end, PossibleOrders),
+	First.
 
 on_path(#order{floor=Floor,direction=Dir},Last_floor, Direction) ->
 	if 	((Dir == up) or (Dir == command)) and (Direction == up) ->
@@ -154,7 +153,7 @@ on_path(#order{floor=Floor,direction=Dir},Last_floor, Direction) ->
 	end.
 
 get_orders_from_connected_nodes() ->
-	Receiver = spawn(?MODULE,magic_function,[[], self()]),
+	Receiver = spawn(?MODULE,merge_received,[[], self()]),
 	send_to_queue_on_nodes({get_orders, Receiver}),
 	receive
 		List -> 
@@ -163,11 +162,11 @@ get_orders_from_connected_nodes() ->
 			[]
 	end.
 
-magic_function(List,Pid) -> 
+merge_received(List,Pid) -> 
 	receive
 		L -> 
 			RetList = List ++ (lists:filter(fun(E) -> not is_command_order(E) end, L)),
-			magic_function(RetList,Pid)
+			merge_received(RetList,Pid)
 	after 50 ->
 		Pid ! List
 	end.
