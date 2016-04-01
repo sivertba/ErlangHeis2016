@@ -39,8 +39,7 @@ direction_picker({SelfFloor, SelfState}, NeighbStates, Orders) ->
   end.
   
   % prinsipp: se eldste ordre, er jeg narmeste heis? ja -> kjor, nei -> se etter nyere ordre
+  % hvis ingen ordre, vent, prov igjen
   % problemer: to heiser som er like narme vil begge kjore
   % ved faerre enn 3 heiser resulterer det i ineffektiv oppforsel (i hvert fall ved 1 heis!)
-  % hvis ingen ordre, vent, prov igjen
-  
-  % burde hver heis i stedet se etter narmeste ordre? -> risikerer å sette fast ensom heis mellom 2 etg
+  % NEI! :DD pga blindekjoringsprinsippet :D hvis det er noe pa veien stopper vi der forst
