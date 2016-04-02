@@ -4,7 +4,8 @@
 %Forslag til API:
 -export ([	start/0,
 			add_order/2,
-			get_orders/0]).
+			get_orders/0,
+			remove_order/1]).
 
 -define(QUEUE_PID, queue).
 -define(DETS_TABLE_NAME, "ordersETS").
@@ -21,7 +22,7 @@ start() ->
     dets:close(?DETS_TABLE_NAME),
 	
 	%Burde gjøres i "main"
-	register(?QUEUE_PID,spawn(?MODULE,order_bank,Orders_From_Disk)),
+	register(?QUEUE_PID,spawn(?MODULE,order_bank,[Orders_From_Disk])),
 	
     %Request orders from other nodes and add
     lists:foreach(fun(E) -> add_order(E) end, get_orders_from_connected_nodes()),
@@ -59,39 +60,28 @@ order_monitor(Order,Manager) ->
 
 order_bank(L) ->
 	dets:open_file(?DETS_TABLE_NAME, [{type,bag}]),
+	dets:delete_all_objects(?DETS_TABLE_NAME),
+	lists:foreach(fun(E) -> dets:insert(?DETS_TABLE_NAME, E) end, L),
+	dets:close(?DETS_TABLE_NAME),
+
 	receive
 		{get_orders, Pid} ->
-			dets:close(?DETS_TABLE_NAME),
 			Pid ! L,
 			?MODULE:order_bank(L);
-
-
 		{add, Order} ->
-			Guard = is_duplicates(Order,L),
+			Duplicates = is_duplicates(Order,L),
 			if
-				Guard ->
-					dets:close(?DETS_TABLE_NAME),
+				Duplicates ->
 					?MODULE:order_bank(L);
-				true -> 
-					dets:insert(?DETS_TABLE_NAME, Order),
-    				dets:close(?DETS_TABLE_NAME),
-    				?MODULE:order_bank(L++Order)
+				not Duplicates ->
+					?MODULE:order_bank(L++[Order])
 			end;
-
-
 		{remove, Order} -> 
-			dets:delete_object(?DETS_TABLE_NAME, Order),
-    		dets:close(?DETS_TABLE_NAME),
 			?MODULE:order_bank(lists:delete(Order, L))
-
-	after 50 -> 
-	    dets:close(?DETS_TABLE_NAME),
-	    ?MODULE:order_bank(L)
 	end.
 
-is_duplicates(Order,L) ->
-	Bool = lists:any(fun(E) -> order_match(E,Order) end, L),
-	Bool.	
+is_duplicates(Order,List) ->
+	lists:any(fun(E) -> order_match(E,Order) end ,List).
 
 order_match(A,B) -> 
 	if
@@ -122,13 +112,10 @@ floor_compare(A,B) ->
 is_command_order(Order) when Order#order.direction == command -> true;
 is_command_order(Order) when Order#order.direction /= command -> false.
 
-order_is_in_list(O,List) ->
-	lists:any(fun(E) -> order_match(E,O) end ,List).
-
 % nar bruker vi denne? nar trenger vi eldste ordre??
 orders_on_path(Last_floor,Direction,L) ->
 	PossibleOrders = lists:filter(fun(Elem) -> on_path(Elem,Last_floor,Direction) end, L),
-	[First | Rest] = lists:sort(fun(A,B) -> timestamp_compare(A,B) end, PossibleOrders),
+	[First | _Rest] = lists:sort(fun(A,B) -> timestamp_compare(A,B) end, PossibleOrders),
 	First.
 
 on_path(#order{floor=Floor,direction=Dir},Last_floor, Direction) ->
