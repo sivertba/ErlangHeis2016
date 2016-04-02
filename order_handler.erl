@@ -26,6 +26,10 @@ start() ->
 	
     %Request orders from other nodes and add
     lists:foreach(fun(E) -> add_order(E) end, get_orders_from_connected_nodes()),
+
+    %Handels network errors
+
+
 	ok.
 
 add_order(Floor,Direction) ->
@@ -160,3 +164,20 @@ merge_received(List,Pid) ->
 
 send_to_queue_on_nodes(Msg) ->
 	lists:foreach(fun(Node) -> {?QUEUE_PID, Node} ! Msg end,nodes()).
+
+
+start_monitoring_of_nodes() ->
+	%timer:sleep()
+	watcher().
+
+watcher() ->
+	receive 
+		{nodedown, _Node} -> ok;
+			%store timestamp: erlang:timestamp()
+		{nodeup, _Node} -> ok
+			%add all orders newer than timestamp
+			%get all orders newer than timestamp
+			%MAKE SURE THAT ONLY THE OLDEST GET STORED
+
+			%Remove all orders older timestamp that is not part of the intersection of orders
+	end.
