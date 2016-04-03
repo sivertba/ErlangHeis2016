@@ -5,11 +5,11 @@
 -export ([	start/0,
 			add_order/2,
 			get_orders/0,
+			floor_match/2,
 			remove_order/1]).
 
 -define(QUEUE_PID, queue).
 -define(DETS_TABLE_NAME, "ordersETS").
--define(ORDER_EXECUTION_DEADLINE, 10000). %10 seconds
 
 -record (order, {floor,direction,timestamp = erlang:timestamp()}).
 
@@ -21,14 +21,14 @@ start() ->
     Orders_From_Disk = dets:lookup(?DETS_TABLE_NAME, order),
     dets:close(?DETS_TABLE_NAME),
 	
-	%Burde gjøres i "main"
+	%Burde gjøres i "main"?
 	register(?QUEUE_PID,spawn(?MODULE,order_bank,[Orders_From_Disk])),
 	
     %Request orders from other nodes and add
     lists:foreach(fun(E) -> add_order(E) end, get_orders_from_connected_nodes()),
 
     %Handels network errors
-
+    spawn(?MODULE,start_monitoring_of_nodes,[]),
 
 	ok.
 
@@ -57,7 +57,7 @@ order_monitor(Order,Manager) ->
 			remove_order(Order);
 		{order_aborted} -> 
 			add_order(Order)
-	after ?ORDER_EXECUTION_DEADLINE -> 
+	after 10000 -> 
 		Manager ! timeout,
 		add_order(Order)
 	end.
@@ -67,7 +67,6 @@ order_bank(L) ->
 	dets:delete_all_objects(?DETS_TABLE_NAME),
 	lists:foreach(fun(E) -> dets:insert(?DETS_TABLE_NAME, E) end, L),
 	dets:close(?DETS_TABLE_NAME),
-
 	receive
 		{get_orders, Pid} ->
 			Pid ! L,
@@ -157,7 +156,7 @@ merge_received(List,Pid) ->
 	receive
 		L -> 
 			RetList = List ++ (lists:filter(fun(E) -> not is_command_order(E) end, L)),
-			merge_received(RetList,Pid)
+			?MODULE:merge_received(ordsets:from_list(RetList),Pid)
 	after 50 ->
 		Pid ! List
 	end.
@@ -168,16 +167,33 @@ send_to_queue_on_nodes(Msg) ->
 
 start_monitoring_of_nodes() ->
 	%timer:sleep()
-	watcher().
+	watcher({0,0,0}).
 
-watcher() ->
+watcher({0,0,0}) ->
+	global_group:monitor_nodes(true),
+	watcher({0,0,1});
+watcher(Timestamp) ->
 	receive 
-		{nodedown, _Node} -> ok;
-			%store timestamp: erlang:timestamp()
-		{nodeup, _Node} -> ok
-			%add all orders newer than timestamp
-			%get all orders newer than timestamp
-			%MAKE SURE THAT ONLY THE OLDEST GET STORED
+		{nodedown, _Node} ->
+			watcher(erlang:timestamp());
+		{nodeup, _Node} ->
+			DummyOrder = #order{floor = 0, direction = 0, timestamp = Timestamp},
+			
+			MyOrders = get_orders(),
+			OtherOrders = get_orders_from_connected_nodes(),
 
-			%Remove all orders older timestamp that is not part of the intersection of orders
-	end.
+			MineOlder = lists:filter(fun(E) -> timestamp_compare(E,DummyOrder) end,MyOrders),
+			OtherOlder = lists:filter(fun(E) -> timestamp_compare(E,DummyOrder) end, OtherOrders),
+
+			MineNew = lists:filter(fun(E) -> timestamp_compare(DummyOrder,E) end, MyOrders),
+			OtherNew = lists:filter(fun(E) -> timestamp_compare(DummyOrder,E) end, OtherOrders),
+
+			ToRemoveOld = MineOlder -- OtherOlder,
+			lists:foreach(fun(E) -> remove_order(E) end,ToRemoveOld),
+
+			%help
+			lists:foreach(fun(E) -> remove_order(E) end, MineNew),
+			ToAddNew = lists:sort(fun(A,B) -> timestamp_compare(A,B) end, MineNew ++ OtherNew),
+			lists:foreach(fun(E) -> add_order(E) end, ToAddNew)
+	end,
+	?MODULE:watcher({0,0,1}).
