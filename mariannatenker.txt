@@ -29,3 +29,25 @@ Moduler:
   Hvis det er ordre som bør tas, sjekker om det finnes en heis i bevegelse på vei dit. 
   (burde kanskje få inn alle heisers status samtidig)
   Hvis ingen andre heiser er på vei, gi beskjed om å få ræva i gir.
+  
+  --- 03.04.16 ---
+  Vedrørende ordrehåndteringen skrevet midnatt fredag:
+  To heiser bør ikke gå løs på samme ordre 
+  fordi den heisen som ender opp med å ikke få ordren kommer til å kjøre helt til en endeetasje
+  Det må derfor innføres tiebreaking, f.eks. på PIDs? 
+  Bare et eller annet som identifiserer prosessen som kan brukes til entydig tildeling 
+  f.eks. at den med lavest pid får ordren og den andre leter etter ny ordre
+  Stopping ved endeetasjer bør uansett implementeres, da ordren en heis er på vei mot kan forsvinne pga fiksing av nettverksbrudd
+  (hvis ordren som skal håndteres ble håndtert av en annen heis under bruddet)
+  Evt. stoppe alle heiser på første etasje de kommer til etter nettverksbrudd, og så tildele ordre
+  (tenker at ordretildelingen kjøres hver gang en heis havner i idle)
+  
+  Gjenstår: håndtere heiser som ikke kommer frem!
+  F.eks. en heis som stoppes på vei ned mellom 2. og 1. vil effektivt blokke de andre fra å håndtere 1.
+  fordi den alltid scorer lavest kost
+  med mindre det bestilles med command
+  Timeout-parameter som gir høy kostnad legges til? 
+  En heis som slippes løs vil da potensielt kjøre til endeetasje hvis den ikke finner bestillinger på veien
+  
+  Heiser bør forøvrig alltid lete etter command-ordre først
+  Ordrekøen kan sorteres slik at command-puljen kommer først?
