@@ -63,10 +63,6 @@ order_monitor(Order,Manager) ->
 	end.
 
 order_bank(L) ->
-	dets:open_file(?DETS_TABLE_NAME, [{type,bag}]),
-	dets:delete_all_objects(?DETS_TABLE_NAME),
-	lists:foreach(fun(E) -> dets:insert(?DETS_TABLE_NAME, E) end, L),
-	dets:close(?DETS_TABLE_NAME),
 	receive
 		{get_orders, Pid} ->
 			Pid ! L,
@@ -77,9 +73,15 @@ order_bank(L) ->
 				Duplicates ->
 					?MODULE:order_bank(L);
 				not Duplicates ->
+					dets:open_file(?DETS_TABLE_NAME, [{type,bag}]),
+    				dets:insert(?DETS_TABLE_NAME, Order),
+    				dets:close(?DETS_TABLE_NAME),
 					?MODULE:order_bank(L++[Order])
 			end;
-		{remove, Order} -> 
+		{remove, Order} ->
+			dets:open_file(?DETS_TABLE_NAME, [{type,bag}]),
+    		dets:delete_object(?DETS_TABLE_NAME, Order),
+    		dets:close(?DETS_TABLE_NAME),
 			?MODULE:order_bank(lists:delete(Order, L))
 	end.
 
