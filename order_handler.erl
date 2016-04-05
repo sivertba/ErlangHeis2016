@@ -1,17 +1,19 @@
 -module (order_handler).
 -compile(export_all).
+-include("orders.hrl").
 
 %Forslag til API:
 -export ([	start/0,
 			add_order/2,
 			get_orders/0,
 			floor_match/2,
-			remove_order/1]).
+			remove_order/1,
+			is_duplicates/2]).
 
 -define(QUEUE_PID, queue).
 -define(DETS_TABLE_NAME, "ordersETS").
 
--record (order, {floor,direction,timestamp = erlang:timestamp()}).
+%-record (order, {floor,direction,timestamp = erlang:timestamp()}).
 
 %Må endres
 start() ->
