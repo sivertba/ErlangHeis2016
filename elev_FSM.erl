@@ -13,7 +13,8 @@ init(Manager) ->
 	flush(),
 	Manager ! {init, started},
 	receive 
-		{floor_reached, _Floor} ->
+		{floor_reached, Floor} ->
+			Manager ! {init, completed, Floor},
 			idle(Manager)
 	end.
 
