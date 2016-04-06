@@ -2,18 +2,26 @@
 -compile(export_all).
 
 init() ->
+	{_ok, [LongIPtuple | _Tail]} = inet:getif(),
+	NodeName = list_to_atom("heis@"++tuple_to_stringIP(element(1, LongIPtuple))),
+	net_kernel:start([NodeName, longnames, 500]),
+	erlang:set_cookie(node(), 'kake'),
+
+
 	Hosts = net_adm:host_file(),
 	SelfPid = self(), % shit losning, unnskyld Kjetil & Erlang-guder
 
-	PidList = lists:map(fun(Elem) -> spawn_monitor(?MODULE, getNodes, [Elem, SelfPid]) end, Hosts),
-	% spawn_monitor returns {Pid, Ref}!!! Shit ensues
-
-	ActiveHosts = list_builder([], PidList),
-	net_adm:world_list(ActiveHosts),
-	nodes().
+	connect(Hosts, SelfPid).
 	
 	%PingResults = lists:map(fun connection:unpackPing/1, NodeList),
-	
+
+connect(Hosts, SelfPid) ->
+	PidList = lists:map(fun(Elem) -> spawn_monitor(?MODULE, getNodes, [Elem, SelfPid]) end, Hosts),
+	% spawn_monitor returns {Pid, Ref}
+	Nodes = nodelist_builder([], PidList),
+	lists:foreach(fun(Node) -> net_adm:ping(Node) end, Nodes),
+	connect(Hosts, SelfPid).
+
 
 getNodes(Host, Listener) ->
 	timer:exit_after(2000, time_exceeded),
@@ -21,25 +29,28 @@ getNodes(Host, Listener) ->
 	Listener ! {new_list_item, self(), Host, Message}. %knotete
 
 % unodvendig naa
-unpackPing({Name, _Port}) ->
-	net_adm:ping(list_to_atom(Name)).
+%unpackPing({Name, _Port}) ->
+	%net_adm:ping(list_to_atom(Name)).
 
 
-list_builder(HostList, []) ->
-	HostList;
-list_builder(HostList, PidList) ->
+nodelist_builder(NodeList, []) ->
+	NodeList;
+nodelist_builder(NodeList, PidList) ->
 	receive
-		{new_list_item, Pid, Host, {ok, _Nodes}} ->
-			list_builder([Host | HostList], lists:keydelete(Pid, 1, PidList));
+		{new_list_item, Pid, Host, {ok, RawNodes}} ->
+			Nodes = lists:map(fun({Name, _Port}) -> list_to_atom(Name++"@"++atom_to_list(Host)) end, RawNodes),
+			nodelist_builder(Nodes++NodeList, lists:keydelete(Pid, 1, PidList));
 		{new_list_item, Pid, _Host, {error, _Reason}} ->
-			list_builder(HostList, lists:keydelete(Pid, 1, PidList));
+			nodelist_builder(NodeList, lists:keydelete(Pid, 1, PidList));
 		{'DOWN', _Ref, process, Pid, _Reason} ->
-			list_builder(HostList, lists:keydelete(Pid, 1, PidList))
+			nodelist_builder(NodeList, lists:keydelete(Pid, 1, PidList))
 	end.
 
-	% lager predikat for pid-dropping
-	% predikatet funker ikke, pid-lista kortes ikke ned???
-	%Pred = fun(DeletePid, {DeletePid, _}) -> true;
-	%	(_, _) -> false
-	%end,
-	%lists:dropwhile(fun(Elem) -> Pred(Pid, Elem) end, PidList)
+
+tuple_to_stringIP(IPtuple) ->
+	[_Head | IPlist] = lists:flatmap(fun(X) -> ['.', X] end, tuple_to_list(IPtuple)),
+	lists:concat(IPlist).
+
+
+
+%lists:foldl(fun(Int, String) -> String++'.'integer_to_list(Integer)++,"", tuple_to_list(IPtuple))
