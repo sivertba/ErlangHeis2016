@@ -30,30 +30,30 @@ turn_penalty(_ElevFloor, Dir, Dif) when (Dir == up andalso Dif < 0) orelse (Dir 
 
 % manager-oppførsel:
 direction_picker() ->
-  % hent egen state
-  % hent inn  naboenes states
+  Elevators = elevator:get_states(),
   % hent ordreliste, med eldste først
-  direction_picker(StateTuple, NeighbStates, Orders);
-direction_picker(_StateTuple, _NeighbStates, []) ->
+  direction_picker(Elevators, Orders);
+direction_picker(_Elevators, []) ->
   timer:sleep(200),
   direction_picker();
-direction_picker({{SelfState, SelfFloor, SelfDir}, SelfNode}, NeighbStates, Orders) ->
+direction_picker(Elevators, Orders) ->
   [Oldest|Rest] = Orders,
-  SelfCost = cost_function({SelfState, SelfFloor, SelfDir}, Oldest#order.floor),
-  case SelfCost of
-    0 -> open_doors;
-    _ ->
-      BestNeighb = min(lists:map(fun({{State, Floor, Dir}, Node) -> {cost_function({State, Floor, Dir} Oldest#order.floor), Node} end, NeighbStates)),
-      if
-        BestNeighb < {SelfCost, SelfNode} ->
-          direction_picker({{SelfState, SelfFloor, SelfDir}, SelfNode}, NeighbStates, Rest);
-        BestNeighb > {SelfCost, SelfNode} ->
-          if 
+  {BestCost, BestNode} = min(lists:map(fun({{State, Floor, Dir}, Node}) -> {cost_function({State, Floor, Dir} Oldest#order.floor), Node} end, Elevators))
+  case BestNode == node() of
+    true ->
+      case BestCost of
+          0 -> open_doors;
+          _ ->
+            if 
+            % OBS! SelfFloor er udefinert RN
             Oldest#order.floor < SelfFloor -> down;
             Oldest#order.floor > SelfFloor -> up
           end
-      end
-  end.
+      end;
+    false ->
+      direction_picker({{SelfState, SelfFloor, SelfDir}, SelfNode}, NeighbStates, Rest)
+  end
+end.
   
   % prinsipp: se eldste ordre, er jeg narmeste heis? ja -> kjor, nei -> se etter nyere ordre
   % hvis ingen ordre, vent, prov igjen
