@@ -20,7 +20,7 @@ init(Manager) ->
 
 idle(Manager) ->
 	flush(),
-	Manager ! {motor,stop},
+	Manager ! {idle},
 	receive
 		{move, Dir} ->
 			Manager ! {motor, Dir},
@@ -38,7 +38,7 @@ doors_open(Manager) ->
 	idle(Manager).
 
 
-moving(Manager) -> 
+moving_up(Manager) -> 
 	flush(),
 	receive
 		{floor_reached, Floor} ->
@@ -46,10 +46,31 @@ moving(Manager) ->
 			doors_open(Manager);
 		{endpoint, _Floor} ->
 			idle(Manager)
+	after 6000 ->
+		stuck(Manager)
 			% if for some reason the elevator reaches an endpoint 
 			% where there are no orders, just stop.
 	end.
 		
+moving_down(Manager) -> 
+	flush(),
+	receive
+		{floor_reached, Floor} ->
+			Manager ! {arrived, Floor},
+			doors_open(Manager);
+		{endpoint, _Floor} ->
+			idle(Manager)
+		after 6000 ->
+			stuck(Manager)
+			% if for some reason the elevator reaches an endpoint 
+			% where there are no orders, just stop.
+	end.
+
+stuck(Manager)->
+	flush(),
+	receive
+		{} ->
+
 
 flush() ->
     receive _Any ->
