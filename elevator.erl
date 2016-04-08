@@ -22,20 +22,6 @@ start() ->
     ElevatorManagerPid ! init_completed.
 
 
-state_monitor() -> 
-	receive
-		get_state -> State;
-		update_state -> state_monitor()
-	end.
-
-get_states() ->
-	F = fun(E) ->
-		{?STATE_MONITOR, E} ! get_state
-		receive
-			State -> {State, E}
-		end
-	end,
-	lists:map(F,[node()|nodes()]).
 
 
 elevator_manager_init() ->
@@ -138,6 +124,39 @@ elevator_manager(FsmPid, Floor) ->
 %		elev_driver:set_motor_direction(Dir)
 %    end,
 %    driver_manager().
+
+state_monitor(State) -> 
+	receive
+		get_state -> 
+			State;
+		{update_state, NewState} -> 
+			state_monitor(NewState)
+	end.
+
+%start sending in [OwnState]
+get_states(StateList) ->
+	Receiver = spawn(?MODULE,merge_received,[StateList, self()]),
+	lists:foreach(fun(Node) -> {?STATE_MONITOR, Node} ! get_state end,nodes()),
+	receive
+		L ->
+			L
+	after 100 ->
+		StateList
+	end.
+
+merge_received(List,Pid) -> 
+	receive
+		State -> 
+			NewList = List ++ [State],
+			if
+				length(NewList) == length([node() | nodes()]) ->
+					Pid ! NewList;
+				length(NewList) /= length([node() | nodes()]) ->
+					?MODULE:merge_received(NewList, Pid)
+			end
+			after 50 ->
+		Pid ! List
+	end.
 
 button_light_manager_init() ->
     receive init_completed ->
