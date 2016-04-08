@@ -147,7 +147,7 @@ on_path(#order{floor=Floor,direction=Dir},Last_floor, Direction) ->
 	end.
 
 get_orders_from_connected_nodes() ->
-	Receiver = spawn(?MODULE,merge_received,[[], self()]),
+	Receiver = spawn(?MODULE,merge_received,[[], self(),0]),
 	send_to_queue_on_nodes({get_orders, Receiver}),
 	receive
 		List -> 
@@ -156,11 +156,17 @@ get_orders_from_connected_nodes() ->
 			[]
 	end.
 
-merge_received(List,Pid) -> 
+merge_received(List,Pid, Counter) ->
 	receive
 		L -> 
 			RetList = List ++ (lists:filter(fun(E) -> not is_command_order(E) end, L)),
-			?MODULE:merge_received(ordsets:from_list(RetList),Pid)
+			MaxNodesReached = length(Counter) == length(nodes()),
+			if
+				MaxNodesReached ->
+					Pid ! RetList;
+				not MaxNodesReached ->
+					?MODULE:merge_received(ordsets:from_list(RetList),Pid, Counter + 1)
+			end
 	after 50 ->
 		Pid ! List
 	end.
