@@ -1,5 +1,6 @@
 -module (connection).
 -compile(export_all).
+-include("records_and_macros.hrl").
 
 init() ->
 	{_ok, [LongIPtuple | _Tail]} = inet:getif(),
@@ -8,7 +9,6 @@ init() ->
 	erlang:set_cookie(node(), 'kake'),
 
 	Hosts = net_adm:host_file(),
-	erlang:display(Hosts),
 	connect(Hosts).
 	
 	%PingResults = lists:map(fun connection:unpackPing/1, NodeList),
@@ -17,6 +17,7 @@ init() ->
 connect(Hosts) ->
 	PidList = lists:map(fun(Elem) -> spawn_monitor(?MODULE, getNodes, [Elem, self()]) end, Hosts),
 	ResponsiveHosts = hostlist_builder([], PidList),
+	erlang:display(ResponsiveHosts),
 	net_adm:world_list(ResponsiveHosts),
 	%lists:foreach(fun(Host) -> net_adm:ping(list_to_atom("heis@"++atom_to_list(Host))) end, ResponsiveHosts),
 	connect(Hosts).
@@ -35,7 +36,7 @@ connect(Hosts) ->
 getNodes(Host, Listener) ->
 	timer:exit_after(2000, time_exceeded),
 	Message = net_adm:names(Host),
-	Listener ! {new_list_item, self(), Host, Message}. %knotete
+	Listener ! {new_list_item, self(), Host, Message}.
 
 % unodvendig naa
 %unpackPing({Name, _Port}) ->
