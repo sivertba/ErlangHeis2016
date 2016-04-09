@@ -1,16 +1,13 @@
 -module(elev_driver).
 -export([start/2, stop/0]).
 -export([init/1, set_motor_direction/1, set_door_open_lamp/1, set_stop_lamp/1, set_floor_indicator/1, set_button_lamp/3, foreach_button/1]).
+-include("records_and_macros.hrl").
+
 
 %This Driver and all the belonging files are shamelessly copied and modified 
 %from Kjetil Kjeka's github repo, found at https://github.com/kjetilkjeka/sanntidsheis
 %We deemed this as a better alternative to the approach used in the example driver folder.
 %And we didn't want to "copy" http://erlang.org/doc/tutorial/c_port.html ourselves.
-
--define(NUMBER_OF_FLOORS, 4).
--define(BUTTON_TYPES, [up, down, command]).
--define(POLL_PERIOD, 50).
-
 
 %% Module API
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
