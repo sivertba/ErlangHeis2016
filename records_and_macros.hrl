@@ -1,5 +1,5 @@
 %this is the record for order
--record (order, {floor,direction,timestamp = erlang:timestamp()}).
+-record (order, {floor,direction,timestamp = os:timestamp()}).
 
 %cross-module macros
 -define(NUMBER_OF_FLOORS, 4).
