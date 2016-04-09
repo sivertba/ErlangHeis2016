@@ -1,6 +1,6 @@
 -module (order_handler).
 -compile(export_all).
--include("orders.hrl").
+-include("records_and_macros.hrl").
 
 %Forslag til API:
 -export ([	start/0,
@@ -9,9 +9,6 @@
 			floor_match/2,
 			remove_order/1,
 			is_duplicates/2]).
-
--define(QUEUE_PID, queue).
--define(DETS_TABLE_NAME, "ordersETS").
 
 %-record (order, {floor,direction,timestamp = erlang:timestamp()}).
 
@@ -53,17 +50,6 @@ get_orders() ->
 		L -> L
 	end.
 
-order_monitor(Order,Manager) ->
-	receive
-		{order_handeld} -> 
-			remove_order(Order);
-		{order_aborted} -> 
-			add_order(Order)
-	after 10000 -> 
-		Manager ! timeout,
-		add_order(Order)
-	end.
-
 order_bank(L) ->
 	receive
 		{get_orders, Pid} ->
@@ -90,34 +76,26 @@ order_bank(L) ->
 is_duplicates(Order,List) ->
 	lists:any(fun(E) -> order_match(E,Order) end ,List).
 
-order_match(A,B) -> 
-	if
-		(A#order.floor == B#order.floor) andalso (A#order.direction == B#order.direction) ->
-			true;
-		(A#order.floor /= B#order.floor) or (A#order.direction /= B#order.direction) ->
-			false
-	end.
+order_match(A,B) when (A#order.floor == B#order.floor) andalso (A#order.direction == B#order.direction) -> true;
+order_match(A,B) when (A#order.floor /= B#order.floor) orelse (A#order.direction /= B#order.direction) -> false.
 
-floor_match(A,B) -> 
-	if
-		(A#order.floor == B#order.floor) -> true;
-		(A#order.floor /= B#order.floor) ->	false
-	end.
+floor_match(A,B) when (A#order.floor == B#order.floor) -> true;
+floor_match(A,B) when (A#order.floor /= B#order.floor) -> false. 
 
-timestamp_compare(A,B) -> 
-	if 
-		A#order.timestamp =< B#order.timestamp -> true;
-		A#order.timestamp > B#order.timestamp -> false
-	end.
+timestamp_compare(A,B) when A#order.timestamp =< B#order.timestamp -> true;
+timestamp_compare(A,B) when A#order.timestamp > B#order.timestamp -> false.
 
-floor_compare(A,B) ->
-	if
-		A#order.floor =< B#order.floor -> true;
-		A#order.floor > B#order.floor -> false
-	end.
+floor_compare(A,B) when A#order.floor =< B#order.floor -> true;
+floor_compare(A,B) when A#order.floor > B#order.floor -> false.
 
 is_command_order(Order) when Order#order.direction == command -> true;
 is_command_order(Order) when Order#order.direction /= command -> false.
+
+is_order(Floor,Direction) ->
+	is_duplicates(#order{floor = Floor, direction = Direction},get_orders()).
+
+is_in_queue(Floor, Direction) ->
+	order_handler:is_duplicates(#order{floor = Floor, direction = Direction},get_orders()).
 
 % nar bruker vi denne? nar trenger vi eldste ordre??
 orders_on_path(Last_floor,Direction,L) ->
@@ -128,16 +106,16 @@ orders_on_path(Last_floor,Direction,L) ->
 on_path(#order{floor=Floor,direction=Dir},Last_floor, Direction) ->
 	if 	((Dir == up) or (Dir == command)) and (Direction == up) ->
 			if
-				Last_floor > Floor -> 
+				Last_floor >= Floor -> 
 					false;
-				Last_floor =< Floor -> 
+				Last_floor < Floor -> 
 					true
 			end;
 		((Dir == down) or (Dir == command)) and (Direction == down) ->
 			if
-				Last_floor < Floor -> 
+				Last_floor =< Floor -> 
 					false;
-				Last_floor >= Floor-> 
+				Last_floor > Floor-> 
 					true
 			end;
 		Direction == command -> 
@@ -174,9 +152,7 @@ merge_received(List,Pid, Counter) ->
 send_to_queue_on_nodes(Msg) ->
 	lists:foreach(fun(Node) -> {?QUEUE_PID, Node} ! Msg end,nodes()).
 
-
 start_monitoring_of_nodes() ->
-	%timer:sleep()
 	watcher({0,0,0}).
 
 watcher({0,0,0}) ->
