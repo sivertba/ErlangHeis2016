@@ -2,37 +2,42 @@
 %-export ().
 %-compile(export_all).
 %gen_fsm Callbacks
--export([  	init/1,
-         	idle/1,
-         	doors_open/1,
-         	moving/1]).
+-export([init/1]).
 
 -define (DOOR_OPEN_DURATION, 3000).
+-define (EXPECTED_MAX_TIME_BETWEEN_FLOORS, 7000).
+
+% if we are ever bored: go back to a single moving state
+
 
 init(Manager) ->
 	flush(),
 	Manager ! {init, started},
 	receive 
-		{floor_reached, Floor} ->
-			Manager ! {init, completed, Floor},
+		{floor_reached} ->
+			Manager ! {init, completed},
 			idle(Manager)
 	end.
 
 idle(Manager) ->
 	flush(),
-	Manager ! {idle},
+	Manager ! {awaiting_orders},
 	receive
-		{move, Dir} ->
-			Manager ! {motor, Dir},
-			moving(Manager);
-		{floor_reached, Floor} -> 
-			Manager ! {arrived, Floor},
+		{move, up} ->
+			Manager ! {set_motor, up},
+			moving_up(Manager);
+		{move, down} ->
+			Manager ! {set_motor, down},
+			moving_down(Manager);
+		{floor_reached} -> 
 			doors_open(Manager)
+	after 200 ->
+		idle(Manager)
 	end.
 
 doors_open(Manager) ->
 	flush(),
-	Manager ! {open, doors},
+	Manager ! {doors, open},
 	timer:sleep(?DOOR_OPEN_DURATION),
 	Manager ! {doors, close},
 	idle(Manager).
@@ -41,35 +46,47 @@ doors_open(Manager) ->
 moving_up(Manager) -> 
 	flush(),
 	receive
-		{floor_reached, Floor} ->
-			Manager ! {arrived, Floor},
+		{floor_passed} ->
+			moving_up(Manager);
+		{floor_reached} ->
+			Manager ! {set_motor, stop},
 			doors_open(Manager);
-		{endpoint, _Floor} ->
+		{endpoint} ->
+			Manager ! {set_motor, stop},
 			idle(Manager)
-	after 6000 ->
+	after ?EXPECTED_MAX_TIME_BETWEEN_FLOORS ->
 		stuck(Manager)
-			% if for some reason the elevator reaches an endpoint 
-			% where there are no orders, just stop.
 	end.
 		
 moving_down(Manager) -> 
 	flush(),
 	receive
-		{floor_reached, Floor} ->
-			Manager ! {arrived, Floor},
+		{floor_passed} ->
+			moving_down(Manager);
+		{floor_reached} ->
+			Manager ! {set_motor, stop},
 			doors_open(Manager);
-		{endpoint, _Floor} ->
+		{endpoint} ->
+			Manager ! {set_motor, stop},
 			idle(Manager)
-		after 6000 ->
+		after ?EXPECTED_MAX_TIME_BETWEEN_FLOORS ->
 			stuck(Manager)
-			% if for some reason the elevator reaches an endpoint 
-			% where there are no orders, just stop.
 	end.
 
 stuck(Manager)->
 	flush(),
 	receive
-		{} ->
+		{floor_reached} ->
+			Manager ! {set_motor, stop},
+			idle(Manager);
+		{floor_passed} ->
+			Manager ! {set_motor, stop},
+			idle(Manager);
+		{endpoint} ->
+			Manager ! {set_motor, stop},
+			idle(Manager)
+	end.
+
 
 
 flush() ->
