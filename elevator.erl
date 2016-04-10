@@ -9,7 +9,8 @@
 
 start() ->
     
-    spawn(fun() -> connection:init() end),
+    %spawn(fun() -> connection:init() end),
+    kjetilco:start_auto_discovery(),
     timer:sleep(50),
     order_handler:start(),
 
@@ -20,8 +21,11 @@ start() ->
 	
 	register(?FSM_PID, spawn(fun() -> elev_FSM:init(ElevatorManagerPid) end)),
 
+	ButtonLightManagerPID = spawn(fun() -> button_light_manager_init() end),
+
 	DriverManagerPid = spawn(?MODULE, driver_manager_init, [ElevatorManagerPid]),
 
+	ButtonLightManagerPID ! init_completed,
     DriverManagerPid ! init_completed.
 
 
@@ -32,16 +36,6 @@ driver_manager_init(ElevatorManagerPid) ->
 		init_completed ->
 			ok
 	end,
-	OffWithTheLights = fun(Floor, Direction) ->
-						elev_driver:set_button_lamp(Floor, Direction, off)
-					end,
-
-	elev_driver:foreach_button(OffWithTheLights),
-
-	dets:open_file(?DETS_TABLE_NAME, [{type,bag}]),
-    Orders_From_Disk = dets:lookup(?DETS_TABLE_NAME, order),
-    dets:close(?DETS_TABLE_NAME),
-    lists:foreach(fun(E) -> elev_driver:set_button_lamp(E#order.floor, E#order.direction, on) end, Orders_From_Disk),
 	ElevatorManagerPid ! {driver_init_completed},
 
 	driver_manager(ElevatorManagerPid).
@@ -49,7 +43,6 @@ driver_manager_init(ElevatorManagerPid) ->
 driver_manager(ElevatorManagerPid) ->
 	receive
 		{new_order, Direction, Floor} ->
-			elev_driver:set_button_lamp(Floor, Direction, on),
 			order_handler:add_order(Floor, Direction);
 		{floor_reached, Floor} ->
 			elev_driver:set_floor_indicator(Floor),
@@ -106,7 +99,6 @@ elevator_manager() ->
 						_ ->
 							?FSM_PID ! {floor_reached},
 							lists:foreach(fun(E) -> order_handler:remove_order(E) end, ToRemove),
-							lists:foreach(fun(E) -> elev_driver:set_button_lamp(E#order.floor, E#order.direction, off) end, ToRemove),
 							elevator_manager()
 					end
 			end;
@@ -124,7 +116,6 @@ elevator_manager() ->
 					{{_State, Floor, Dir}, _Node} = lists:keyfind(node(), 2, Elevators),
 					ToRemove = order_handler:to_remove(Floor, Dir),
 					lists:foreach(fun(E) -> order_handler:remove_order(E) end, ToRemove),
-					lists:foreach(fun(E) -> elev_driver:set_button_lamp(E#order.floor, E#order.direction, off) end, ToRemove),
 					elevator_manager();
 				Dir ->
 					?FSM_PID ! {move, Dir},
@@ -197,3 +188,23 @@ merge_received(List,Pid) ->
 			after 50 ->
 		Pid ! List
 	end.
+
+button_light_manager_init() ->
+    receive init_completed ->
+	    ok
+    end,
+    button_light_manager().
+button_light_manager() ->
+    SetLightFunction = fun(Floor, Direction) ->
+			       ButtonState = case order_handler:is_order(Floor, Direction) of
+						 true ->
+						     on;
+						 false ->
+						     off
+					     end,
+			       elev_driver:set_button_lamp(Floor, Direction, ButtonState)
+		       end,	 
+    
+    elev_driver:foreach_button(SetLightFunction),
+    timer:sleep(100),
+    button_light_manager().
