@@ -4,11 +4,10 @@
 
 %Forslag til API:
 -export ([	start/0,
+			is_order/2,
 			add_order/2,
 			get_orders/0,
-			floor_match/2,
-			remove_order/1,
-			is_duplicates/2]).
+			remove_order/1]).
 
 %-record (order, {floor,direction,timestamp = erlang:timestamp()}).
 
@@ -20,10 +19,9 @@ start() ->
     Orders_From_Disk = dets:lookup(?DETS_TABLE_NAME, order),
     dets:close(?DETS_TABLE_NAME),
 	
-	%Burde gjøres i "main"?
 	register(?QUEUE_PID,spawn(?MODULE,order_bank,[Orders_From_Disk])),
 	
-    %Request orders from other nodes and add
+    %Request orders from other nodes andalso add
     lists:foreach(fun(E) -> add_order(E) end, get_orders_from_connected_nodes()),
 
     %Handels network errors
@@ -45,10 +43,10 @@ remove_order(Order) ->
 	send_to_queue_on_nodes({remove, Order}).
 
 get_orders() ->
-	?QUEUE_PID ! {get_orders, self()},
-	receive
-		L -> L
-	end.
+	dets:open_file(?DETS_TABLE_NAME, [{type,bag}]),
+    Orders_From_Disk = dets:lookup(?DETS_TABLE_NAME, order),
+    dets:close(?DETS_TABLE_NAME),
+    Orders_From_Disk.
 
 order_bank(L) ->
 	receive
@@ -73,6 +71,18 @@ order_bank(L) ->
 			?MODULE:order_bank(lists:delete(Order, L))
 	end.
 
+to_remove(Floor,Direction) -> 
+	%erlang:display("Tries to remove orders in floor "++integer_to_list(Floor)++", direction "++atom_to_list(Direction)),
+	Case = orders_beyond(Floor, Direction),
+	case Case of
+		true -> 
+			%erlang:display("Orders found beyond"),
+			lists:filter(fun(E) -> on_path(E,Floor,Direction) andalso floor_match(#order{floor=Floor,direction=Direction},E) end, get_orders());
+		false ->
+			%erlang:display("No orders found beyond"), 
+			lists:filter(fun(E) -> floor_match(#order{floor=Floor,direction=Direction}, E) end, get_orders())
+	end.
+
 is_duplicates(Order,List) ->
 	lists:any(fun(E) -> order_match(E,Order) end ,List).
 
@@ -92,10 +102,7 @@ is_command_order(Order) when Order#order.direction == command -> true;
 is_command_order(Order) when Order#order.direction /= command -> false.
 
 is_order(Floor,Direction) ->
-	is_duplicates(#order{floor = Floor, direction = Direction},get_orders()).
-
-is_in_queue(Floor, Direction) ->
-	order_handler:is_duplicates(#order{floor = Floor, direction = Direction},get_orders()).
+	is_duplicates(#order{floor = Floor, direction = Direction}, get_orders()).
 
 % nar bruker vi denne? nar trenger vi eldste ordre??
 orders_on_path(Last_floor,Direction,L) ->
@@ -103,24 +110,13 @@ orders_on_path(Last_floor,Direction,L) ->
 	[First | _Rest] = lists:sort(fun(A,B) -> timestamp_compare(A,B) end, PossibleOrders),
 	First.
 
-on_path(#order{floor=Floor,direction=Dir},Last_floor, Direction) ->
-	if 	((Dir == up) or (Dir == command)) and (Direction == up) ->
-			if
-				Last_floor >= Floor -> 
-					false;
-				Last_floor < Floor -> 
-					true
-			end;
-		((Dir == down) or (Dir == command)) and (Direction == down) ->
-			if
-				Last_floor =< Floor -> 
-					false;
-				Last_floor > Floor-> 
-					true
-			end;
-		Direction == command -> 
+on_path(#order{floor=OrderFloor,direction=OrderDir}, ElevFloor, ElevDir) ->
+	case ElevDir of
+		up  when (ElevFloor == ?NUMBER_OF_FLOORS-1) orelse (OrderDir /= down andalso ElevFloor =< OrderFloor) ->
 			true;
-		true -> 
+		down when (ElevFloor == 0) orelse (OrderDir /= up andalso ElevFloor >= OrderFloor) ->
+			true;
+		_ ->
 			false
 	end.
 
@@ -183,3 +179,13 @@ watcher(Timestamp) ->
 			lists:foreach(fun(E) -> add_order(E) end, ToAddNew)
 	end,
 	?MODULE:watcher({0,0,1}).
+
+orders_beyond(Floor, Dir) ->
+	Orders = ?MODULE:get_orders(),
+	case Dir of
+		up ->
+			NextFloors = lists:seq(Floor+1, ?NUMBER_OF_FLOORS-1);
+		down ->
+			NextFloors = lists:seq(0, Floor-1)
+	end,
+	lists:any(fun(F) -> lists:any(fun(Order) -> floor_match(#order{floor=F}, Order) end, Orders) end, NextFloors).

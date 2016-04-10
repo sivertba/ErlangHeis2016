@@ -1,7 +1,5 @@
 -module (elev_FSM).
-%-export ().
-%-compile(export_all).
-%gen_fsm Callbacks
+-compile(export_all).
 -export([init/1]).
 
 -define (DOOR_OPEN_DURATION, 3000).
@@ -11,16 +9,16 @@
 
 
 init(Manager) ->
-	flush(),
+	%flush(),
 	Manager ! {init, started},
 	receive 
 		{floor_reached} ->
-			Manager ! {init, completed},
-			idle(Manager)
-	end.
+			Manager ! {init, completed}
+	end,
+	idle(Manager).
 
 idle(Manager) ->
-	flush(),
+	%flush(),
 	Manager ! {awaiting_orders},
 	receive
 		{move, up} ->
@@ -36,7 +34,7 @@ idle(Manager) ->
 	end.
 
 doors_open(Manager) ->
-	flush(),
+	%flush(),
 	Manager ! {doors, open},
 	timer:sleep(?DOOR_OPEN_DURATION),
 	Manager ! {doors, close},
@@ -44,7 +42,7 @@ doors_open(Manager) ->
 
 
 moving_up(Manager) -> 
-	flush(),
+	%flush(),
 	receive
 		{floor_passed} ->
 			moving_up(Manager);
@@ -59,7 +57,7 @@ moving_up(Manager) ->
 	end.
 		
 moving_down(Manager) -> 
-	flush(),
+	%flush(),
 	receive
 		{floor_passed} ->
 			moving_down(Manager);
@@ -74,7 +72,8 @@ moving_down(Manager) ->
 	end.
 
 stuck(Manager)->
-	flush(),
+	%flush(),
+	Manager ! {stuck},
 	receive
 		{floor_reached} ->
 			Manager ! {set_motor, stop},

@@ -9,20 +9,19 @@
 
 start() ->
     
-    %spawn(fun() -> connection:init() end),
+    spawn(fun() -> connection:init() end),
     timer:sleep(50),
-
     order_handler:start(),
 
 
-	register(?STATE_MONITOR,spawn(?MODULE, state_monitor,[invalid, -1, down])),
+	register(?STATE_MONITOR_PID,spawn(?MODULE, state_monitor,[invalid, -1, down])),
    
 	ElevatorManagerPid = spawn(fun() ->elevator_manager_init() end),
+	
+	register(?FSM_PID, spawn(fun() -> elev_FSM:init(ElevatorManagerPid) end)),
+
 	DriverManagerPid = spawn(?MODULE, driver_manager_init, [ElevatorManagerPid]),
 
-    ButtonLightManagerPID = spawn(fun() -> button_light_manager_init() end),
-
-    ButtonLightManagerPID ! init_completed,
     DriverManagerPid ! init_completed.
 
 
@@ -33,27 +32,36 @@ driver_manager_init(ElevatorManagerPid) ->
 		init_completed ->
 			ok
 	end,
+	OffWithTheLights = fun(Floor, Direction) ->
+						elev_driver:set_button_lamp(Floor, Direction, off)
+					end,
+
+	elev_driver:foreach_button(OffWithTheLights),
+
+	dets:open_file(?DETS_TABLE_NAME, [{type,bag}]),
+    Orders_From_Disk = dets:lookup(?DETS_TABLE_NAME, order),
+    dets:close(?DETS_TABLE_NAME),
+    lists:foreach(fun(E) -> elev_driver:set_button_lamp(E#order.floor, E#order.direction, on) end, Orders_From_Disk),
 	ElevatorManagerPid ! {driver_init_completed},
+
 	driver_manager(ElevatorManagerPid).
 
 driver_manager(ElevatorManagerPid) ->
 	receive
-		{new_order, Direction, OrderFloor} ->
-				order_handler:add_order(OrderFloor, Direction);
+		{new_order, Direction, Floor} ->
+			elev_driver:set_button_lamp(Floor, Direction, on),
+			order_handler:add_order(Floor, Direction);
 		{floor_reached, Floor} ->
+			elev_driver:set_floor_indicator(Floor),
 			ElevatorManagerPid ! {floor_reached, Floor}
 	end,
 	driver_manager(ElevatorManagerPid).
 
 
 elevator_manager_init() ->
-	erlang:display("Elevator manager waiting for driver_init_completed"),
-	% HIT MEN IKKE LENGER
 	receive {driver_init_completed} ->
 		ok
 	end,
-	FsmPid = elev_FSM:init(self()),
-	erlang:display("FSM initiated"),
 	receive
 		{init, started} ->
 			elev_driver:set_motor_direction(down)
@@ -62,16 +70,18 @@ elevator_manager_init() ->
 		{floor_reached, NewFloor} ->
 			elev_driver:set_floor_indicator(NewFloor),
 			?STATE_MONITOR ! {update_state, floor, NewFloor},
-			FsmPid ! {floor_reached}
+			?FSM_PID ! {floor_reached}
 	end,
 	receive
 		{init, completed} ->
 			elev_driver:set_motor_direction(stop),
 			?STATE_MONITOR ! {update_state, state, stationary}
-	end,
-	elevator_manager(FsmPid).
+		end,
+	elevator_manager().
 
-elevator_manager(FsmPid) ->
+elevator_manager() ->
+	%tester ikke for ordre i etasjen vi er i!
+
 	receive
 		{floor_reached, NewFloor} -> %from driver
 			elev_driver:set_floor_indicator(NewFloor),
@@ -79,99 +89,66 @@ elevator_manager(FsmPid) ->
 			?STATE_MONITOR ! {get_state, self()},
 			receive
 				{{_State, _Floor, LastDir}, _Node} ->
-				% find if there are orders on this floor in direction of travel or commands:
-				case lists:any(fun(OrderDir) -> order_handler:is_order(NewFloor, OrderDir) end, [command | LastDir]) of
-					true ->
-						FsmPid ! {floor_reached},
-						elevator_manager(FsmPid);
-					false ->
-						case NewFloor of
-							0 ->
-								FsmPid ! {endpoint},
-								elevator_manager(FsmPid);
-							?NUMBER_OF_FLOORS-1 ->
-								FsmPid ! {endpoint},
-								elevator_manager(FsmPid);
-							_ ->
-								FsmPid ! {floor_passed},
-								elevator_manager(FsmPid)
-						end
-				end
+					ToRemove = order_handler:to_remove(NewFloor, LastDir),
+					case ToRemove of
+						[] ->
+							case NewFloor of
+								0 ->
+									?FSM_PID ! {endpoint},
+									elevator_manager();
+								?NUMBER_OF_FLOORS-1 ->
+									?FSM_PID ! {endpoint},
+									elevator_manager();
+								_ ->
+									?FSM_PID ! {floor_passed},
+									elevator_manager()
+							end;
+						_ ->
+							?FSM_PID ! {floor_reached},
+							lists:foreach(fun(E) -> order_handler:remove_order(E) end, ToRemove),
+							lists:foreach(fun(E) -> elev_driver:set_button_lamp(E#order.floor, E#order.direction, off) end, ToRemove),
+							elevator_manager()
+					end
 			end;
 		
-		% from fsm
+		% from ?FSM_PID
 		{awaiting_orders} ->
 			Elevators = get_states(),
 			Orders = order_handler:get_orders(),
-			case order_distribution:action_select(Elevators,Orders) of
+			Action = order_distribution:action_select(Elevators,Orders),
+			case Action of
 				wait ->
-					elevator_manager(FsmPid);
+					elevator_manager();
 				open_doors ->
-					FsmPid ! {floor_reached},
-					elevator_manager(FsmPid);
+					?FSM_PID ! {floor_reached},
+					{{_State, Floor, Dir}, _Node} = lists:keyfind(node(), 2, Elevators),
+					ToRemove = order_handler:to_remove(Floor, Dir),
+					lists:foreach(fun(E) -> order_handler:remove_order(E) end, ToRemove),
+					lists:foreach(fun(E) -> elev_driver:set_button_lamp(E#order.floor, E#order.direction, off) end, ToRemove),
+					elevator_manager();
 				Dir ->
-					FsmPid ! {move, Dir},
-					elevator_manager(FsmPid)
+					?FSM_PID ! {move, Dir},
+					elevator_manager()
 			end;
 		{set_motor, Dir} ->
 			elev_driver:set_motor_direction(Dir),
 			case Dir of
 				stop -> ?STATE_MONITOR ! {update_state, state, stationary};
-				_ -> ?STATE_MONITOR ! {update_state, state, Dir}
+				_ -> 
+					?STATE_MONITOR ! {update_state, state, moving},
+					?STATE_MONITOR ! {update_state, dir, Dir}
 			end,
-			elevator_manager(FsmPid);
+			elevator_manager();
 		{doors, open} ->
 			elev_driver:set_door_open_lamp(on),
-			elevator_manager(FsmPid);
+			elevator_manager();
 		{doors, close} ->
 			elev_driver:set_door_open_lamp(off),
-			elevator_manager(FsmPid)
+			elevator_manager();
+		{stuck} ->
+			?STATE_MONITOR ! {update_state, state, stuck},
+			elevator_manager()
 	end.
-
-%fsm_manager_init() ->
-%	FsmPID = elev_FSM:init(self()),
-%    receive init_completed ->
-%	    ok
-%    end,
-%    fsm_manager(FsmPID,-1).
-%fsm_manager(FsmPID,Floor) ->
-%    receive
-%		{init, started} ->
-%	    	drivermanager ! {motor,down}
-%	    {init, completed, Floor} ->
-%	    	ok;
-%	    {motor, stop} ->
-%	    	elev_driver:set_motor_direction(stop);
-%	    {getdir} -> %her blir det hårete ...
-%	    	%costfunction regner ut hvor vi burde dra
-%	    	Bool = false, %må teste om vi er i topp eller bunn
-%	    	if
-%	    		Bool ->
-%	    			ok
-%	    	end;
-%	   	{doors, open} -> ok;
-%	   	{doors, closed} -> ok;
-%	   end,
-%	   fsm_manager(FsmPID,Floor).
-
-
-%driver_manager_init() ->
-%	elev_driver:start(drivermanager, elevator),
-%    receive init_completed ->
-%	    ok
-%    end,
-%    driver_manager().
-%driver_manager() ->
-%    receive
-%	{new_order, Direction, Floor} ->
-%	    order_handler:add_order(Floor, Direction);
-%	{floor_reached, Floor} ->
-%	    elev_driver:set_floor_indicator(Floor),
-%	    elev_fsm:event_floor_reached(fsm);
-%	{motor, Dir} ->
-%		elev_driver:set_motor_direction(Dir)
-%    end,
-%    driver_manager().
 
 %{State, LastFloor, LastDir}, node()
 state_monitor(State, LastFloor, LastDir) -> 
@@ -184,8 +161,12 @@ state_monitor(State, LastFloor, LastDir) ->
 					Pid ! {{State,LastFloor,LastDir}, node()},
 					?MODULE:state_monitor(State, LastFloor, LastDir)
 			end;
-		{update_state, floor, NewFloor} -> 
-			state_monitor(State, NewFloor,LastDir);
+		{update_state, floor, NewFloor} ->
+			case NewFloor of
+				0 -> state_monitor(State, NewFloor, up);
+				?NUMBER_OF_FLOORS-1 -> state_monitor(State, NewFloor, down);
+				_ -> state_monitor(State, NewFloor, LastDir)
+			end; 
 		{update_state, state, NewState} -> 
 			state_monitor(NewState, LastFloor, LastDir);
 		{update_state, dir, NewDir} -> 
@@ -216,23 +197,3 @@ merge_received(List,Pid) ->
 			after 50 ->
 		Pid ! List
 	end.
-
-button_light_manager_init() ->
-    receive init_completed ->
-	    ok
-    end,
-    button_light_manager().
-button_light_manager() ->
-	Orders = order_handler:get_orders(),
-    SetLightFunction = fun(Floor, Direction) ->
-    	ButtonState = case order_handler:is_order(Floor, Orders) of
-						 true ->
-						     on;
-						 false ->
-						     off
-					     end,
-    	elev_driver:set_button_lamp(Floor, Direction, ButtonState)
-		end,	 
-    elev_driver:foreach_button(SetLightFunction),
-    timer:sleep(200),
-    button_light_manager().
