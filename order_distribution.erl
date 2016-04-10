@@ -11,7 +11,7 @@ cost_function({ElevState, ElevFloor, ElevLastDir}, OrderFloor, OrderDir) ->
   	stuck -> 10;
   	_ ->
       Difference = OrderFloor - ElevFloor, %if negative, order is below
-      Cost = erlang:abs(Difference) + movement_penalty(ElevState, ElevLastDir, Difference) + turn_penalty(ElevState, ElevFloor, ElevLastDir, OrderFloor, OrderDir),
+      Cost = erlang:abs(Difference) + movement_penalty(ElevState, ElevLastDir, Difference) + turn_penalty(ElevState, ElevFloor, ElevLastDir, OrderFloor) + order_dir_penalty(ElevLastDir, OrderDir),
       %erlang:display(["Order ", OrderFloor, OrderDir, "Costs ", Cost, "From ", ElevFloor, ElevLastDir]),
       Cost
   end.
@@ -23,15 +23,21 @@ movement_penalty(_State, Dir, FloorDif) when (Dir == up andalso FloorDif > 0) or
 movement_penalty(_State, Dir, FloorDif) when (Dir == up andalso FloorDif < 0) orelse (Dir == down andalso FloorDif > 0) -> 1.5.
 
 %Penalty for getting there:
-turn_penalty(stationary, ElevFloor, _ElevDir, _OrderFloor, _OrderDir) when ElevFloor == 0 orelse ElevFloor == (?NUMBER_OF_FLOORS-1) -> 0;
-turn_penalty(moving, ElevFloor, ElevDir, _OrderFloor, _OrderDir) when (ElevFloor == 1 andalso ElevDir == down); (ElevFloor == (?NUMBER_OF_FLOORS-2) andalso ElevDir == up) -> 0;
-turn_penalty(_ElevState, ElevFloor, ElevDir, OrderFloor, _OrderDir) when (ElevDir == up andalso OrderFloor < ElevFloor) orelse (ElevDir == down andalso OrderFloor > ElevFloor) -> 2;
+turn_penalty(stationary, ElevFloor, _ElevDir, _OrderFloor) when ElevFloor == 0 orelse ElevFloor == (?NUMBER_OF_FLOORS-1) -> 0;
+turn_penalty(moving, ElevFloor, ElevDir, _OrderFloor) when (ElevFloor == 1 andalso ElevDir == down); (ElevFloor == (?NUMBER_OF_FLOORS-2) andalso ElevDir == up) -> 0;
+turn_penalty(_ElevState, ElevFloor, ElevDir, OrderFloor) when (ElevDir == up andalso OrderFloor < ElevFloor) orelse (ElevDir == down andalso OrderFloor > ElevFloor) -> 1.75;
+turn_penalty(_ElevState, _ElevFloor, _ElevDir, _OrderFloor) -> 0.
+
+order_dir_penalty(ElevDir, OrderDir) when OrderDir /= command andalso ElevDir /= OrderDir -> 2.75;
+order_dir_penalty(_ElevDir, _OrderDir) -> 0.
+
+
 % Penalty for aiming at orders in wrong direction:
-turn_penalty(_ElevState, _ElevFloor, _ElevDir, OrderFloor, _OrderDir) when OrderFloor == 0 orelse OrderFloor == (?NUMBER_OF_FLOORS-1) -> 0;
-turn_penalty(_ElevState, _ElevFloor, ElevDir, _OrderFloor, OrderDir) when OrderDir /= command andalso ElevDir /= OrderDir-> 3;
+%turn_penalty(_ElevState, _ElevFloor, _ElevDir, OrderFloor, _OrderDir) when OrderFloor == 0 orelse OrderFloor == (?NUMBER_OF_FLOORS-1) -> 0;
+%turn_penalty(_ElevState, _ElevFloor, ElevDir, _OrderFloor, OrderDir) when OrderDir /= command andalso ElevDir /= OrderDir-> 3;
 %turn_penalty(stationary, _ElevFloor, Dir, Dif) when (Dir == up andalso Dif > 0) orelse (Dir == down andalso Dif < 0) -> 0;
 %turn_penalty(moving, _ElevFloor, Dir, Dif) when (Dir == up andalso Dif > 0) orelse (Dir == down andalso Dif < 0) -> 0;
-turn_penalty(_ElevState, _ElevFloor, _ElevDir, _OrderFloor, _OrderDir) -> 0.
+%turn_penalty(_ElevState, _ElevFloor, _ElevDir, _OrderFloor, _OrderDir) -> 0.
 
 % forklaring av verdier:
 % om heisen er på vei mot ordren, er det bedre enn om den stod stille der den nettopp stod, men verre enn om den stod stille der den snart er
@@ -80,10 +86,14 @@ action_select(Elevators, Orders) ->
   find_next_order([{BestCost, BestOrder}| Rest], OtherOrders) ->
     case lists:keyfind(BestOrder, 2, OtherOrders) of
       false ->
+        erlang:display("Won order, cost:"),
+        erlang:display(BestOrder),
+        erlang:display(BestCost),
         BestOrder;
-      {OtherCost, _Order, _Node} when (OtherCost > BestCost) -> BestOrder;
-      {OtherCost, _Order, Node} when OtherCost == BestCost andalso Node > node() ->
-        erlang:display("It's a tie!"),
+      {OtherCost, _Order, Node} when (OtherCost > BestCost) orelse (OtherCost == BestCost andalso Node > node()) ->
+        erlang:display("Won order, cost:"),
+        erlang:display(BestOrder),
+        erlang:display(BestCost),
         BestOrder;
       _ ->
         find_next_order(Rest, OtherOrders)
