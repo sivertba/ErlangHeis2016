@@ -12,7 +12,7 @@ cost_function({ElevState, ElevFloor, ElevLastDir}, OrderFloor, OrderDir) ->
   	_ ->
       Difference = OrderFloor - ElevFloor, %if negative, order is below
       Cost = erlang:abs(Difference) + movement_penalty(ElevState, ElevLastDir, Difference) + turn_penalty(ElevState, ElevFloor, ElevLastDir, OrderFloor, OrderDir),
-      erlang:display(["Order ", OrderFloor, OrderDir, "Costs ", Cost, "From ", ElevFloor, ElevLastDir]),
+      %erlang:display(["Order ", OrderFloor, OrderDir, "Costs ", Cost, "From ", ElevFloor, ElevLastDir]),
       Cost
   end.
   
@@ -81,7 +81,9 @@ action_select(Elevators, Orders) ->
     case lists:keyfind(BestOrder, 2, OtherOrders) of
       false ->
         BestOrder;
-      {OtherCost, _Order, Node} when (OtherCost > BestCost) orelse (OtherCost == BestCost andalso Node > node()) ->
+      {OtherCost, _Order, _Node} when (OtherCost > BestCost) -> BestOrder;
+      {OtherCost, _Order, Node} when OtherCost == BestCost andalso Node > node() ->
+        erlang:display("It's a tie!"),
         BestOrder;
       _ ->
         find_next_order(Rest, OtherOrders)
