@@ -3,7 +3,7 @@
 -export([init/1]).
 
 -define (DOOR_OPEN_DURATION, 3000).
--define (EXPECTED_MAX_TIME_BETWEEN_FLOORS, 7000).
+-define (EXPECTED_MAX_TIME_BETWEEN_FLOORS, 4000).
 
 % if we are ever bored: go back to a single moving state
 
