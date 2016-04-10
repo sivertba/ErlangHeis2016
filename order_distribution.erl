@@ -25,7 +25,7 @@ movement_penalty(_State, Dir, FloorDif) when (Dir == up andalso FloorDif < 0) or
 %Penalty for getting there:
 turn_penalty(stationary, ElevFloor, _ElevDir, _OrderFloor) when ElevFloor == 0 orelse ElevFloor == (?NUMBER_OF_FLOORS-1) -> 0;
 turn_penalty(moving, ElevFloor, ElevDir, _OrderFloor) when (ElevFloor == 1 andalso ElevDir == down); (ElevFloor == (?NUMBER_OF_FLOORS-2) andalso ElevDir == up) -> 0;
-turn_penalty(_ElevState, ElevFloor, ElevDir, OrderFloor) when (ElevDir == up andalso OrderFloor < ElevFloor) orelse (ElevDir == down andalso OrderFloor > ElevFloor) -> 1.75;
+turn_penalty(_ElevState, ElevFloor, ElevDir, OrderFloor) when (ElevDir == up andalso OrderFloor < ElevFloor) orelse (ElevDir == down andalso OrderFloor > ElevFloor) -> 0.75;
 turn_penalty(_ElevState, _ElevFloor, _ElevDir, _OrderFloor) -> 0.
 
 order_dir_penalty(ElevDir, OrderDir) when OrderDir /= command andalso ElevDir /= OrderDir -> 2.75;
