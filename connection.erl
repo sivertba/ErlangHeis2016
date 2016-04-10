@@ -18,6 +18,7 @@ connect(Hosts) ->
 	
 	% det som skal ha funket onsdag:
 	Nodes = nodelist_builder([], PidList),
+	erlang:display(Nodes),
 	lists:foreach(fun(Node) -> net_adm:ping(Node) end, Nodes),
 	
 	%funket torsdag, ikke lordag:
@@ -52,7 +53,6 @@ nodelist_builder(NodeList, []) ->
 nodelist_builder(NodeList, PidList) ->
 	receive
 		{new_list_item, Pid, Host, {ok, RawNodes}} ->
-			% hvis det ikke funker: sett atom_to_list rundt Name
 			Nodes = lists:map(fun({Name, _Port}) -> list_to_atom(Name++"@"++atom_to_list(Host)) end, RawNodes),
 			nodelist_builder(Nodes++NodeList, lists:keydelete(Pid, 1, PidList));
 		{new_list_item, Pid, _Host, {error, _Reason}} ->
