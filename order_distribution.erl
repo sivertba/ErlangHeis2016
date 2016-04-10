@@ -42,7 +42,7 @@ action_select(_Elevators, []) -> wait;
 action_select(Elevators, Orders) ->
   {value, {LocalState, _Node}, OtherElevs} = lists:keytake(node(), 2, Elevators),
   OurOrders = lists:keysort(1, lists:map(fun(Order) -> {cost_function(LocalState, Order#order.floor, Order#order.direction), Order} end, Orders)),
-  OtherOrders = lists:keysort(1, lists:flatmap(fun({ElevState, Node}) -> lists:map(fun(Order) -> {cost_function(ElevState, Order#order.floor, Order#order.direction), Order, Node} end, Orders) end, OtherElevs)),
+  OtherOrders = lists:keysort(1, lists:flatmap(fun({ElevState, Node}) -> lists:map(fun(Order) -> {cost_function(ElevState, Order#order.floor, Order#order.direction), Order, Node} end, lists:filter(fun(Order) -> Order#order.direction /= command end, Orders)) end, OtherElevs)),
   NextOrder = find_next_order(OurOrders, OtherOrders),
   case NextOrder of
     none -> wait;
