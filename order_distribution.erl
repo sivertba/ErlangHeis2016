@@ -86,6 +86,7 @@ action_select(Elevators, Orders) ->
   find_next_order([{BestCost, BestOrder}| Rest], OtherOrders) ->
     case lists:keyfind(BestOrder, 2, OtherOrders) of
       false ->
+        erlang:display("Other elevator does not have order"),
         erlang:display("Won order, cost:"),
         erlang:display(BestOrder),
         erlang:display(BestCost),
@@ -96,5 +97,6 @@ action_select(Elevators, Orders) ->
         erlang:display(BestCost),
         BestOrder;
       _ ->
+        erlang:display("Lost order, finding another"),
         find_next_order(Rest, OtherOrders)
     end.
