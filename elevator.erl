@@ -9,8 +9,8 @@
 
 start() ->
     
-    %spawn(fun() -> connection:init() end),
-    kjetilco:start_auto_discovery(),
+    spawn(fun() -> connection:init() end),
+    %kjetilco:start_auto_discovery(),
     timer:sleep(50),
     order_handler:start(),
 

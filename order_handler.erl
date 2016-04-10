@@ -134,7 +134,7 @@ merge_received(List,Pid, Counter) ->
 	receive
 		L -> 
 			RetList = List ++ (lists:filter(fun(E) -> not is_command_order(E) end, L)),
-			MaxNodesReached = length(Counter) == length(nodes()),
+			MaxNodesReached = Counter == length(nodes()),
 			if
 				MaxNodesReached ->
 					Pid ! RetList;
