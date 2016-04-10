@@ -157,7 +157,7 @@ watcher({0,0,0}) ->
 watcher(Timestamp) ->
 	receive 
 		{nodedown, _Node} ->
-			watcher(erlang:timestamp());
+			watcher(erlang:now());
 		{nodeup, _Node} ->
 			DummyOrder = #order{floor = 0, direction = 0, timestamp = Timestamp},
 			
