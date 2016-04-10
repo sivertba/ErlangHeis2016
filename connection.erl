@@ -5,9 +5,11 @@
 init() ->
 	{_ok, [LongIPtuple | _Tail]} = inet:getif(),
 	NodeName = list_to_atom("heis@"++format_IP(element(1, LongIPtuple))),
-	net_kernel:start([NodeName, longnames, 500]),
+	case net_kernel:start([NodeName, longnames, 500]) of
+		{error, Reason} -> erlang:display(Reason),
+		_ -> ok
+	end,
 	erlang:set_cookie(node(), 'kake'),
-	% noden opprettes ettersom erlang ikke klikker nar den setter cookie
 
 	Hosts = net_adm:host_file(),
 	connect(Hosts).
@@ -18,7 +20,6 @@ connect(Hosts) ->
 	
 	% det som skal ha funket onsdag:
 	Nodes = nodelist_builder([], PidList),
-	erlang:display(Nodes),
 	lists:foreach(fun(Node) -> net_adm:ping(Node) end, Nodes),
 	
 	%funket torsdag, ikke lordag:
