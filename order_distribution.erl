@@ -81,7 +81,7 @@ action_select(Elevators, Orders) ->
     case lists:keyfind(BestOrder, 2, OtherOrders) of
       false ->
         BestOrder;
-      {OtherCost, _Order, Node} when (OtherCost > BestCost) orelse (OrderCost == BestCost andalso Node > node()) ->
+      {OtherCost, _Order, Node} when (OtherCost > BestCost) orelse (OtherCost == BestCost andalso Node > node()) ->
         BestOrder;
       _ ->
         find_next_order(Rest, OtherOrders)
