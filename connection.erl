@@ -3,19 +3,18 @@
 -include("records_and_macros.hrl").
 
 init() ->
+	% start distribution, burde gjores et annet sted?
+	os:cmd("epmd -daemon"),
+
 	{_ok, [LongIPtuple | _Tail]} = inet:getif(),
 	NodeName = list_to_atom("heis@"++format_IP(element(1, LongIPtuple))),
-	case net_kernel:start([NodeName, longnames, 500]) of
-		{error, Reason} -> erlang:display(Reason);
-		_ -> ok
-	end,
+
+	net_kernel:start([NodeName, longnames, 500]),
 	erlang:set_cookie(node(), 'kake'),
 
 	Hosts = net_adm:host_file(),
-	erlang:display(Hosts),
 	connect(Hosts).
 
-% HVIS DEN IKKE KJORER, FIKS LINJE 56 SOM BESKREVET DER
 connect(Hosts) ->
 	PidList = lists:map(fun(Elem) -> spawn_monitor(?MODULE, getNodes, [Elem, self()]) end, Hosts),
 	
