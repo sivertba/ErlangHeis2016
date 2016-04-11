@@ -2,13 +2,9 @@
 Sverre stresset at bugfiksing siste uka gir få totale poeng og kan gjøre mer skade. 
 Vi ligger bra an med andre ord og kan ta livet litt med ro! :))
 Husk det! :))
-####Connection
-* Sjekke at det å kopiere hosts til ebin løser noent-erroren (no entry) ved lesing av fil
-* Finne ut av hva som skjer ved oppstart av distribusjon. Forslag til fikser som kanskje hjelper:
-  * starte epdm -daemon manuelt før erl i compile-fila
-  * få compile-fila til å automatisk starte en dummy-node, drepe den, starte erlang på ny (veldig stygt)
-  * sjekke om distribusjonen starter opp hvis vi prøver med net_kernel:start to ganger, i så fall lett å catche i en case
-    * evt spawne net_kernel:start og respawne til den terminerer med ok eller already_started-error? høres ikke lurt ut
+####Bugs
+* SANNSYNLIGVIS FIKSET: state_monitor kræsjer hvis fsm ikke starter opp riktig og state er invalid, deretter kræsjer alt. Forårsaket av gammelt funksjonskall.
+ * Scenario der dette skjedde: heisen er satt i PLS når vi starter opp, flippes til PC etter at state_monitor har kræsja, heisen kjører utfor
 
 ####Øvrige ting å gjøre
 * Rydde kode obv; fjerne unødvendige funksjoner og kommentarer
