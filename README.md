@@ -1,3 +1,21 @@
+###Oppslagstavle
+Sverre stresset at bugfiksing siste uka gir få totale poeng og kan gjøre mer skade. 
+Vi ligger bra an med andre ord og kan ta livet litt med ro! :))
+Husk det! :))
+####Connection
+* Sjekke at det å kopiere hosts til ebin løser noent-erroren (no entry) ved lesing av fil
+* Finne ut av hva som skjer ved oppstart av distribusjon. Forslag til fikser som kanskje hjelper:
+  * starte epdm -daemon manuelt før erl i compile-fila
+  * få compile-fila til å automatisk starte en dummy-node, drepe den, starte erlang på ny (veldig stygt)
+  * sjekke om distribusjonen starter opp hvis vi prøver med net_kernel:start to ganger, i så fall lett å catche i en case
+    * evt spawne net_kernel:start og respawne til den terminerer med ok eller already_started-error? høres ikke lurt ut
+
+####Øvrige ting å gjøre
+* Rydde kode obv; fjerne unødvendige funksjoner og kommentarer
+* Hvis vi er litt ambisiøse: gjøre et forsøk på å stoppe heiser som kjører ut i gokk. Forslag:
+  * få to_remove til å returnere en liste og en bool, {List, OrdersBeyond}. Hvis lista er tom og boolen er false, stopp
+
+
 ###Tanker rundt heis i Erlang
 
 Det var dristig å prøve å lære seg ett helt nytt språk til ett større prosjekt, men ettersom hvordan det språket er bygd opp, og hvilke moduler man har innebygd kan man relativt enkelt agrumentere for å gi det det sjanse.
