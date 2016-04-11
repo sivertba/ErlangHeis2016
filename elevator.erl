@@ -147,7 +147,7 @@ state_monitor(State, LastFloor, LastDir) ->
 		{get_state, Pid} ->
 			case State of
 				invalid ->
-					?MODULE:state_monitor(State);
+					?MODULE:state_monitor(State, LastFloor, LastDir);
 				_ ->
 					Pid ! {{State,LastFloor,LastDir}, node()},
 					?MODULE:state_monitor(State, LastFloor, LastDir)
