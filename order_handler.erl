@@ -190,14 +190,16 @@ watcher(Timestamp) ->
 			[] ->
 				watcher(Timestamp);
 			_ -> 
-				lists:foreach(fun(E) -> add_order(E) end, ToAdd),
+				ists:foreach(fun(E) -> remove_order(E) end, MyOrders),
+				ToAddSorted = lists:sort(lists:sort(fun(A,B) -> timestamp_compare(A,B) end, ToAdd ++ MyOrders)),
+				lists:foreach(fun(E) -> add_order(E) end, ToAddSorted),
 				watcher(Timestamp)
 		end
 	end,
 	?MODULE:watcher({0,0,1}).
 
 orders_beyond(Floor, Dir) ->
-	Orders = ?MODULE:get_orders(),
+	Orders = get_orders(),
 	case Dir of
 		up ->
 			NextFloors = lists:seq(Floor+1, ?NUMBER_OF_FLOORS-1);
