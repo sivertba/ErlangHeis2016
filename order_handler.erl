@@ -157,7 +157,12 @@ watcher({0,0,0}) ->
 watcher(Timestamp) ->
 	receive 
 		{nodedown, _Node} ->
-			watcher(erlang:now());
+			case Timestamp of
+				{0,0,1} ->
+					watcher(erlang:now());
+				_ ->
+					watcher(Timestamp)
+			end;
 		{nodeup, _Node} ->
 			DummyOrder = #order{floor = 0, direction = 0, timestamp = Timestamp},
 			
@@ -177,6 +182,17 @@ watcher(Timestamp) ->
 			lists:foreach(fun(E) -> remove_order(E) end, MineNew),
 			ToAddNew = lists:sort(fun(A,B) -> timestamp_compare(A,B) end, MineNew ++ OtherNew),
 			lists:foreach(fun(E) -> add_order(E) end, ToAddNew)
+	after 10000 ->
+		MyOrders = get_orders(),
+		OtherOrders = get_orders_from_connected_nodes(),
+		ToAdd = OtherOrders -- MyOrders,
+		case ToAdd of
+			[] ->
+				watcher(Timestamp);
+			_ -> 
+				lists:foreach(fun(E) -> add_order(E) end, ToAdd),
+				watcher(Timestamp)
+		end
 	end,
 	?MODULE:watcher({0,0,1}).
 
