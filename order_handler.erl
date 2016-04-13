@@ -182,7 +182,7 @@ watcher(Timestamp) ->
 			lists:foreach(fun(E) -> remove_order(E) end, MineNew),
 			ToAddNew = lists:sort(fun(A,B) -> timestamp_compare(A,B) end, MineNew ++ OtherNew),
 			lists:foreach(fun(E) -> add_order(E) end, ToAddNew)
-	after 10000 ->
+	after 30000 ->
 		MyOrders = get_orders(),
 		OtherOrders = get_orders_from_connected_nodes(),
 		ToAdd = OtherOrders -- MyOrders,
