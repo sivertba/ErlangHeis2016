@@ -105,6 +105,16 @@ on_path(#order{floor=OrderFloor,direction=OrderDir}, ElevFloor, ElevDir) ->
 			false
 	end.
 
+orders_beyond(Floor, Dir) ->
+	Orders = get_orders(),
+	case Dir of
+		up ->
+			NextFloors = lists:seq(Floor+1, ?NUMBER_OF_FLOORS-1);
+		down ->
+			NextFloors = lists:seq(0, Floor-1)
+	end,
+	lists:any(fun(F) -> lists:any(fun(Order) -> floor_match(#order{floor=F}, Order) end, Orders) end, NextFloors).
+
 get_orders_from_connected_nodes() ->
 	Receiver = spawn(?MODULE,merge_received,[[], self(),0]),
 	send_to_queue_on_nodes({get_orders, Receiver}),
@@ -164,13 +174,3 @@ watcher(Timestamp) ->
 		end
 	end,
 	?MODULE:watcher({0,0,1}).
-
-orders_beyond(Floor, Dir) ->
-	Orders = get_orders(),
-	case Dir of
-		up ->
-			NextFloors = lists:seq(Floor+1, ?NUMBER_OF_FLOORS-1);
-		down ->
-			NextFloors = lists:seq(0, Floor-1)
-	end,
-	lists:any(fun(F) -> lists:any(fun(Order) -> floor_match(#order{floor=F}, Order) end, Orders) end, NextFloors).
