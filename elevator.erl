@@ -85,9 +85,9 @@ elevator_manager() ->
 						{[], false} ->
 							?FSM_PID ! {endpoint},
 							elevator_manager();
-						_ ->
+						{ToRemoveList, _} ->
 							?FSM_PID ! {floor_reached},
-							lists:foreach(fun(E) -> order_handler:remove_order(E) end, ToRemove),
+							lists:foreach(fun(E) -> order_handler:remove_order(E) end, ToRemoveList),
 							elevator_manager()
 					end
 			end;
