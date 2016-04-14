@@ -78,10 +78,9 @@ elevator_manager() ->
 				{{_State, _Floor, LastDir}, _Node} ->
 					ToRemove = order_handler:to_remove(NewFloor, LastDir),
 					case ToRemove of
-						{[], true} ->
+						{[], true} when NewFloor /= 0 andalso NewFloor /= ?NUMBER_OF_FLOORS-1->
 							?FSM_PID ! {floor_passed},
 							elevator_manager();
-
 						{[], false} ->
 							?FSM_PID ! {endpoint},
 							elevator_manager();
