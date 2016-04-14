@@ -3,7 +3,6 @@
 -include("records_and_macros.hrl").
 
 init() ->
-	% start distribution, burde gjores et annet sted?
 	os:cmd("epmd -daemon"),
 
 	{_ok, [LongIPtuple | _Tail]} = inet:getif(),
@@ -18,17 +17,8 @@ init() ->
 connect(Hosts) ->
 	PidList = lists:map(fun(Elem) -> spawn_monitor(?MODULE, getNodes, [Elem, self()]) end, Hosts),
 	
-	% det som skal ha funket onsdag:
 	Nodes = nodelist_builder([], PidList),
 	lists:foreach(fun(Node) -> net_adm:ping(Node) end, Nodes),
-	
-	%funket torsdag, ikke lordag:
-	% problem: world_list henger hvis den kjores pa tom liste
-	%ResponsiveHosts = hostlist_builder([], PidList),
-	%net_adm:world_list(ResponsiveHosts),
-	
-	% burde funke, men gjor ikke det:
-	%lists:foreach(fun(Host) -> net_adm:ping(list_to_atom("heis@"++atom_to_list(Host))) end, ResponsiveHosts),
 	
 	connect(Hosts).
 
@@ -36,18 +26,6 @@ getNodes(Host, Listener) ->
 	timer:exit_after(2000, time_exceeded),
 	Message = net_adm:names(Host),
 	Listener ! {new_list_item, self(), Host, Message}.
-
-hostlist_builder(HostList, []) ->
-	HostList;
-hostlist_builder(HostList, PidList) ->
-	receive
-		{new_list_item, Pid, Host, {ok, _Nodes}} ->
-			hostlist_builder([Host | HostList], lists:keydelete(Pid, 1, PidList));
-		{new_list_item, Pid, _Host, {error, _Reason}} ->
-			hostlist_builder(HostList, lists:keydelete(Pid, 1, PidList));
-		{'DOWN', _Ref, process, Pid, _Reason} ->
-			hostlist_builder(HostList, lists:keydelete(Pid, 1, PidList))
-	end.
 
 nodelist_builder(NodeList, []) ->
 	NodeList;

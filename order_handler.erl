@@ -2,16 +2,13 @@
 -compile(export_all).
 -include("records_and_macros.hrl").
 
-%Forslag til API:
 -export ([	start/0,
 			is_order/2,
 			add_order/2,
 			get_orders/0,
 			remove_order/1]).
 
-%-record (order, {floor,direction,timestamp = erlang:timestamp()}).
 
-%Må endres
 start() ->
 	
 	%Update from storage
@@ -72,14 +69,11 @@ order_bank(L) ->
 	end.
 
 to_remove(Floor,Direction) -> 
-	%erlang:display("Tries to remove orders in floor "++integer_to_list(Floor)++", direction "++atom_to_list(Direction)),
 	Case = orders_beyond(Floor, Direction),
 	case Case of
 		true -> 
-			%erlang:display("Orders found beyond"),
 			{lists:filter(fun(E) -> on_path(E,Floor,Direction) andalso floor_match(#order{floor=Floor,direction=Direction},E) end, get_orders()), Case};
 		false ->
-			%erlang:display("No orders found beyond"), 
 			{lists:filter(fun(E) -> floor_match(#order{floor=Floor,direction=Direction}, E) end, get_orders()), Case}
 	end.
 
@@ -92,9 +86,6 @@ order_match(A,B) when (A#order.floor /= B#order.floor) orelse (A#order.direction
 floor_match(A,B) when (A#order.floor == B#order.floor) -> true;
 floor_match(A,B) when (A#order.floor /= B#order.floor) -> false. 
 
-timestamp_compare(A,B) when A#order.timestamp =< B#order.timestamp -> true;
-timestamp_compare(A,B) when A#order.timestamp > B#order.timestamp -> false.
-
 floor_compare(A,B) when A#order.floor =< B#order.floor -> true;
 floor_compare(A,B) when A#order.floor > B#order.floor -> false.
 
@@ -103,12 +94,6 @@ is_command_order(Order) when Order#order.direction /= command -> false.
 
 is_order(Floor,Direction) ->
 	is_duplicates(#order{floor = Floor, direction = Direction}, get_orders()).
-
-% nar bruker vi denne? nar trenger vi eldste ordre??
-orders_on_path(Last_floor,Direction,L) ->
-	PossibleOrders = lists:filter(fun(Elem) -> on_path(Elem,Last_floor,Direction) end, L),
-	[First | _Rest] = lists:sort(fun(A,B) -> timestamp_compare(A,B) end, PossibleOrders),
-	First.
 
 on_path(#order{floor=OrderFloor,direction=OrderDir}, ElevFloor, ElevDir) ->
 	case ElevDir of
@@ -157,14 +142,13 @@ watcher({0,0,0}) ->
 watcher(Timestamp) ->
 	receive 
 		{nodedown, _Node} ->
-			watcher(erlang:now());
+			watcher(Timestamp);
 
 		{nodeup, _Node} ->			
 			MyOrders = get_orders(),
 			OtherOrders = get_orders_from_connected_nodes(),
 			lists:foreach(fun(E) -> remove_order(E) end, MyOrders),
-			ToAddNew = lists:sort(fun(A,B) -> timestamp_compare(A,B) end, MyOrders ++ OtherOrders),
-			lists:foreach(fun(E) -> add_order(E) end, ToAddNew)
+			lists:foreach(fun(E) -> add_order(E) end, ordsets:from_list(MyOrders ++ OtherOrders))
 
 	after 30000 ->
 		MyOrders = get_orders(),
@@ -175,8 +159,7 @@ watcher(Timestamp) ->
 				watcher(Timestamp);
 			_ -> 
 				lists:foreach(fun(E) -> remove_order(E) end, MyOrders),
-				ToAddSorted = lists:sort(lists:sort(fun(A,B) -> timestamp_compare(A,B) end, ToAdd ++ MyOrders)),
-				lists:foreach(fun(E) -> add_order(E) end, ToAddSorted),
+				lists:foreach(fun(E) -> add_order(E) end, ordsets:from_list(MyOrders ++ OtherOrders)),
 				watcher(Timestamp)
 		end
 	end,

@@ -3,7 +3,6 @@
 -include("records_and_macros.hrl").
 
 -export([start/0]).
--define(STATE_MONITOR, state_monitor).
 
 start() ->
     
@@ -12,7 +11,7 @@ start() ->
     spawn(fun() -> connection:init() end),
     timer:sleep(50),
 
-	register(?STATE_MONITOR_PID,spawn(?MODULE, state_monitor,[invalid, -1, down])),
+	register(?STATE_MONITOR, spawn(?MODULE, state_monitor,[invalid, -1, down])),
    
 	ElevatorManagerPid = spawn(fun() ->elevator_manager_init() end),
 	
