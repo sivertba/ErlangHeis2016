@@ -79,15 +79,21 @@ elevator_manager() ->
 				{{_State, _Floor, LastDir}, _Node} ->
 					ToRemove = order_handler:to_remove(NewFloor, LastDir),
 					case ToRemove of
-						{[], true} ->
-							?FSM_PID ! {floor_passed},
-							elevator_manager();
-						{[], false} ->
-							?FSM_PID ! {endpoint},
-							elevator_manager();
-						{ToRemoveList, _} ->
+						[] ->
+							case NewFloor of
+								0 ->
+									?FSM_PID ! {endpoint},
+									elevator_manager();
+								?NUMBER_OF_FLOORS-1 ->
+									?FSM_PID ! {endpoint},
+									elevator_manager();
+								_ ->
+									?FSM_PID ! {floor_passed},
+									elevator_manager()
+							end;
+						_ ->
 							?FSM_PID ! {floor_reached},
-							lists:foreach(fun(E) -> order_handler:remove_order(E) end, ToRemoveList),
+							lists:foreach(fun(E) -> order_handler:remove_order(E) end, ToRemove),
 							elevator_manager()
 					end
 			end;
@@ -103,7 +109,7 @@ elevator_manager() ->
 				open_doors ->
 					?FSM_PID ! {floor_reached},
 					{{_State, Floor, Dir}, _Node} = lists:keyfind(node(), 2, Elevators),
-					{ToRemove, _} = order_handler:to_remove(Floor, Dir),
+					ToRemove = order_handler:to_remove(Floor, Dir),
 					lists:foreach(fun(E) -> order_handler:remove_order(E) end, ToRemove),
 					elevator_manager();
 				Dir ->
