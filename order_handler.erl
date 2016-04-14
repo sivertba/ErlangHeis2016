@@ -77,10 +77,10 @@ to_remove(Floor,Direction) ->
 	case Case of
 		true -> 
 			%erlang:display("Orders found beyond"),
-			lists:filter(fun(E) -> on_path(E,Floor,Direction) andalso floor_match(#order{floor=Floor,direction=Direction},E) end, get_orders());
+			{lists:filter(fun(E) -> on_path(E,Floor,Direction) andalso floor_match(#order{floor=Floor,direction=Direction},E) end, get_orders()), Case};
 		false ->
 			%erlang:display("No orders found beyond"), 
-			lists:filter(fun(E) -> floor_match(#order{floor=Floor,direction=Direction}, E) end, get_orders())
+			{lists:filter(fun(E) -> floor_match(#order{floor=Floor,direction=Direction}, E) end, get_orders()), Case}
 	end.
 
 is_duplicates(Order,List) ->
@@ -158,15 +158,14 @@ watcher(Timestamp) ->
 	receive 
 		{nodedown, _Node} ->
 			watcher(erlang:now());
-		{nodeup, _Node} ->
-			DummyOrder = #order{floor = 0, direction = 0, timestamp = Timestamp},
-			
+
+		{nodeup, _Node} ->			
 			MyOrders = get_orders(),
 			OtherOrders = get_orders_from_connected_nodes(),
-
 			lists:foreach(fun(E) -> remove_order(E) end, MyOrders),
 			ToAddNew = lists:sort(fun(A,B) -> timestamp_compare(A,B) end, MyOrders ++ OtherOrders),
 			lists:foreach(fun(E) -> add_order(E) end, ToAddNew)
+
 	after 30000 ->
 		MyOrders = get_orders(),
 		OtherOrders = get_orders_from_connected_nodes(),
