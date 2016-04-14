@@ -5,15 +5,12 @@
 -export([start/0]).
 -define(STATE_MONITOR, state_monitor).
 
-% project for another day: simplify calls to self in manager
-
 start() ->
     
-    spawn(fun() -> connection:init() end),
-    %kjetilco:start_auto_discovery(),
-    timer:sleep(50),
     order_handler:start(),
-
+    timer:sleep(50),
+    spawn(fun() -> connection:init() end),
+    timer:sleep(50),
 
 	register(?STATE_MONITOR_PID,spawn(?MODULE, state_monitor,[invalid, -1, down])),
    
@@ -27,7 +24,6 @@ start() ->
 
 	ButtonLightManagerPID ! init_completed,
     DriverManagerPid ! init_completed.
-
 
 
 driver_manager_init(ElevatorManagerPid) ->
@@ -73,10 +69,9 @@ elevator_manager_init() ->
 	elevator_manager().
 
 elevator_manager() ->
-	%tester ikke for ordre i etasjen vi er i!
-
 	receive
-		{floor_reached, NewFloor} -> %from driver
+		%from driver
+		{floor_reached, NewFloor} -> 
 			elev_driver:set_floor_indicator(NewFloor),
 			?STATE_MONITOR ! {update_state, floor, NewFloor},
 			?STATE_MONITOR ! {get_state, self()},
@@ -84,26 +79,20 @@ elevator_manager() ->
 				{{_State, _Floor, LastDir}, _Node} ->
 					ToRemove = order_handler:to_remove(NewFloor, LastDir),
 					case ToRemove of
-						[] ->
-							case NewFloor of
-								0 ->
-									?FSM_PID ! {endpoint},
-									elevator_manager();
-								?NUMBER_OF_FLOORS-1 ->
-									?FSM_PID ! {endpoint},
-									elevator_manager();
-								_ ->
-									?FSM_PID ! {floor_passed},
-									elevator_manager()
-							end;
+						{[], true} ->
+							?FSM_PID ! {floor_passed},
+							elevator_manager();
+						{[], false} ->
+							?FSM_PID ! {endpoint},
+							elevator_manager();
 						_ ->
 							?FSM_PID ! {floor_reached},
 							lists:foreach(fun(E) -> order_handler:remove_order(E) end, ToRemove),
 							elevator_manager()
 					end
 			end;
-		
-		% from ?FSM_PID
+
+		% from FSM
 		{awaiting_orders} ->
 			Elevators = get_states(),
 			Orders = order_handler:get_orders(),
@@ -141,7 +130,6 @@ elevator_manager() ->
 			elevator_manager()
 	end.
 
-%{State, LastFloor, LastDir}, node()
 state_monitor(State, LastFloor, LastDir) -> 
 	receive
 		{get_state, Pid} ->
@@ -179,10 +167,10 @@ merge_received(List,Pid) ->
 		State -> 
 			NewList = List ++ [State],
 			MaxNumberOfStatesReceived = length(NewList) == length([node() | nodes()]),
-			if % CASE
-				MaxNumberOfStatesReceived ->
+			case MaxNumberOfStatesReceived of
+				true ->
 					Pid ! NewList;
-				not MaxNumberOfStatesReceived ->
+				false ->
 					?MODULE:merge_received(NewList, Pid)
 			end
 			after 50 ->
@@ -194,6 +182,7 @@ button_light_manager_init() ->
 	    ok
     end,
     button_light_manager().
+
 button_light_manager() ->
     SetLightFunction = fun(Floor, Direction) ->
 			       ButtonState = case order_handler:is_order(Floor, Direction) of
