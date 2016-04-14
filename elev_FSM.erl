@@ -3,7 +3,6 @@
 -compile(export_all).
 -export([init/1]).
 
-
 init(Manager) ->
 	Manager ! {init, started},
 	receive 

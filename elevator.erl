@@ -151,6 +151,7 @@ state_monitor(State, LastFloor, LastDir) ->
 			state_monitor(State, LastFloor, NewDir)
 	end.
 
+%returns the sate of all the elevators in a list
 get_states() ->
 	Receiver = spawn(?MODULE,merge_received,[[], self()]),
 	lists:foreach(fun(Node) -> {?STATE_MONITOR, Node} ! {get_state, Receiver} end, [node()|nodes()]),
@@ -161,6 +162,7 @@ get_states() ->
 		[]
 	end.
 
+%Makes a list of every connected elevator's state and passes it on
 merge_received(List,Pid) -> 
 	receive
 		State -> 
@@ -191,8 +193,7 @@ button_light_manager() ->
 						     off
 					     end,
 			       elev_driver:set_button_lamp(Floor, Direction, ButtonState)
-		       end,	 
-    
+		       end,	  
     elev_driver:foreach_button(SetLightFunction),
     timer:sleep(100),
     button_light_manager().

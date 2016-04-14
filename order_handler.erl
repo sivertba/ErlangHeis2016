@@ -125,6 +125,7 @@ get_orders_from_connected_nodes() ->
 			[]
 	end.
 
+%Makes a list of every connected elevator's orders and passes it on
 merge_received(List,Pid, Counter) ->
 	receive
 		L -> 

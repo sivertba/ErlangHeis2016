@@ -15,6 +15,7 @@ init() ->
 	connect(Hosts).
 
 connect(Hosts) ->
+	% request Erlang nodes from all hosts
 	PidList = lists:map(fun(Elem) -> spawn_monitor(?MODULE, getNodes, [Elem, self()]) end, Hosts),
 	
 	Nodes = nodelist_builder([], PidList),
@@ -27,6 +28,8 @@ getNodes(Host, Listener) ->
 	Message = net_adm:names(Host),
 	Listener ! {new_list_item, self(), Host, Message}.
 
+% Collects replies from hosts with Erlang nodes, returns list of node names
+% Runs until all hosts have replied or request timed out
 nodelist_builder(NodeList, []) ->
 	NodeList;
 nodelist_builder(NodeList, PidList) ->
@@ -40,6 +43,7 @@ nodelist_builder(NodeList, PidList) ->
 			nodelist_builder(NodeList, lists:keydelete(Pid, 1, PidList))
 	end.
 
+% format IP from a tuple of numbers to string separated with "."
 format_IP(IPtuple) ->
 	[_Head | IPlist] = lists:flatmap(fun(X) -> ['.', X] end, tuple_to_list(IPtuple)),
 	lists:concat(IPlist).
