@@ -103,7 +103,7 @@ elevator_manager() ->
 				open_doors ->
 					?FSM_PID ! {floor_reached},
 					{{_State, Floor, Dir}, _Node} = lists:keyfind(node(), 2, Elevators),
-					ToRemove = order_handler:to_remove(Floor, Dir),
+					{ToRemove, _} = order_handler:to_remove(Floor, Dir),
 					lists:foreach(fun(E) -> order_handler:remove_order(E) end, ToRemove),
 					elevator_manager();
 				Dir ->
