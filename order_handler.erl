@@ -157,30 +157,15 @@ watcher({0,0,0}) ->
 watcher(Timestamp) ->
 	receive 
 		{nodedown, _Node} ->
-			case Timestamp of
-				{0,0,1} ->
-					watcher(erlang:now());
-				_ ->
-					watcher(Timestamp)
-			end;
+			watcher(erlang:now());
 		{nodeup, _Node} ->
 			DummyOrder = #order{floor = 0, direction = 0, timestamp = Timestamp},
 			
 			MyOrders = get_orders(),
 			OtherOrders = get_orders_from_connected_nodes(),
 
-			MineOlder = lists:filter(fun(E) -> timestamp_compare(E,DummyOrder) end,MyOrders),
-			OtherOlder = lists:filter(fun(E) -> timestamp_compare(E,DummyOrder) end, OtherOrders),
-
-			MineNew = lists:filter(fun(E) -> timestamp_compare(DummyOrder,E) end, MyOrders),
-			OtherNew = lists:filter(fun(E) -> timestamp_compare(DummyOrder,E) end, OtherOrders),
-
-			ToRemoveOld = MineOlder -- OtherOlder,
-			lists:foreach(fun(E) -> remove_order(E) end,ToRemoveOld),
-
-			%help
-			lists:foreach(fun(E) -> remove_order(E) end, MineNew),
-			ToAddNew = lists:sort(fun(A,B) -> timestamp_compare(A,B) end, MineNew ++ OtherNew),
+			lists:foreach(fun(E) -> remove_order(E) end, MyOrders),
+			ToAddNew = lists:sort(fun(A,B) -> timestamp_compare(A,B) end, MyOrders ++ OtherOrders),
 			lists:foreach(fun(E) -> add_order(E) end, ToAddNew)
 	after 30000 ->
 		MyOrders = get_orders(),
@@ -190,7 +175,7 @@ watcher(Timestamp) ->
 			[] ->
 				watcher(Timestamp);
 			_ -> 
-				ists:foreach(fun(E) -> remove_order(E) end, MyOrders),
+				lists:foreach(fun(E) -> remove_order(E) end, MyOrders),
 				ToAddSorted = lists:sort(lists:sort(fun(A,B) -> timestamp_compare(A,B) end, ToAdd ++ MyOrders)),
 				lists:foreach(fun(E) -> add_order(E) end, ToAddSorted),
 				watcher(Timestamp)
